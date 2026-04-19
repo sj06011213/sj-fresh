@@ -204,7 +204,7 @@ export default function IngredientList({
                   <input type="hidden" name="id" value={ing.id} />
                   <button
                     type="submit"
-                    className="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm text-white dark:bg-white dark:text-black"
+                    className="rounded-lg bg-zinc-200 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600"
                   >
                     소비
                   </button>
