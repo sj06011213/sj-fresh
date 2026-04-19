@@ -115,6 +115,12 @@ export default function AddIngredientButton() {
                   className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
                 />
               </label>
+              <textarea
+                name="memo"
+                placeholder="메모 (선택) — 예: 엄마가 준 거, 반만 먹음"
+                rows={2}
+                className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base dark:border-zinc-700 dark:bg-black"
+              />
               <button
                 type="submit"
                 disabled={isPending}
