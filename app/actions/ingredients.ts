@@ -2,7 +2,13 @@
 
 import { revalidatePath } from 'next/cache'
 import { supabase, type Category } from '@/lib/supabase'
-import { formatQuantity, parseQuantity } from '@/lib/utils/quantity'
+import {
+  formatQuantity,
+  fromBaseUnits,
+  parseQuantity,
+  sameUnitCategory,
+  toBaseUnits,
+} from '@/lib/utils/quantity'
 
 const VALID_CATEGORIES: Category[] = ['fridge', 'freezer', 'pantry']
 
@@ -104,27 +110,34 @@ export async function recordUsage(formData: FormData) {
   assertOk(usageErr, '소진 기록')
 
   if (amount) {
-    const { data: ingredient } = await supabase
+    const { data: ingredient, error: fetchErr } = await supabase
       .from('ingredients')
       .select('quantity')
       .eq('id', ingredient_id)
       .single()
+    assertOk(fetchErr, '재료 조회')
 
     const current = parseQuantity(ingredient?.quantity)
     const used = parseQuantity(amount)
 
-    if (current && used && current.unit === used.unit) {
-      const remaining = current.number - used.number
-      if (remaining <= 0) {
-        await supabase
+    // Auto-subtract when units share a category (L↔ml, kg↔g, 개↔개).
+    // Convert both to the category base unit for arithmetic, then format
+    // the remainder using the ingredient's original unit for consistency.
+    if (current && used && sameUnitCategory(current.unit, used.unit)) {
+      const remainingInBase = toBaseUnits(current) - toBaseUnits(used)
+      if (remainingInBase <= 0) {
+        const { error: consumeErr } = await supabase
           .from('ingredients')
           .update({ consumed_at: new Date().toISOString() })
           .eq('id', ingredient_id)
+        assertOk(consumeErr, '재료 자동 소진')
       } else {
-        await supabase
+        const remaining = fromBaseUnits(remainingInBase, current.unit)
+        const { error: updateErr } = await supabase
           .from('ingredients')
           .update({ quantity: formatQuantity(remaining, current.unit) })
           .eq('id', ingredient_id)
+        assertOk(updateErr, '재료 양 자동 차감')
       }
     }
   }

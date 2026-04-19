@@ -1,16 +1,19 @@
 'use client'
 
 import { useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { CATEGORY_LABELS, type Ingredient } from '@/lib/supabase'
 import { today } from '@/lib/utils/date'
 import { recordUsage } from './actions/ingredients'
 import Modal from './Modal'
+import QuantityInput from './QuantityInput'
 
 export default function RecordUsageButton({
   ingredients,
 }: {
   ingredients: Ingredient[]
 }) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -23,6 +26,7 @@ export default function RecordUsageButton({
     startTransition(async () => {
       try {
         await recordUsage(formData)
+        router.refresh()
         formRef.current?.reset()
         setOpen(false)
       } catch (e) {
@@ -76,13 +80,10 @@ export default function RecordUsageButton({
             </label>
 
             <div className="flex flex-col gap-1">
-              <input
-                name="amount"
-                placeholder="사용한 양 (예: 200ml, 한 컵, 2개)"
-                className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
-              />
+              <span className="px-1 text-xs text-zinc-500">사용한 양</span>
+              <QuantityInput name="amount" />
               <span className="px-1 text-xs text-zinc-400">
-                💡 재료 단위랑 맞게 쓰면 (예: 200ml) 남은 양이 자동 계산돼요
+                💡 재료 단위랑 맞게 선택하면 남은 양이 자동 차감돼요
               </span>
             </div>
 

@@ -3,9 +3,35 @@
  *
  * Known units match the buttons in QuantityInput: 개 / g / kg / ml / L.
  * Free-text values like "한 팩" are not parsed here — callers treat them as opaque.
+ *
+ * Units fall into three categories:
+ *  - weight: g (base), kg (×1000)
+ *  - volume: ml (base), L (×1000)
+ *  - count:  개
+ *
+ * Arithmetic across units within the same category is supported via the
+ * toBaseUnits/fromBaseUnits helpers (e.g., "1L - 200ml = 0.8L").
  */
 
 export type KnownUnit = '개' | 'g' | 'kg' | 'ml' | 'L'
+export type UnitCategory = 'weight' | 'volume' | 'count'
+
+const UNIT_CATEGORY: Record<KnownUnit, UnitCategory> = {
+  개: 'count',
+  g: 'weight',
+  kg: 'weight',
+  ml: 'volume',
+  L: 'volume',
+}
+
+// Conversion factor to the category's base unit (g for weight, ml for volume).
+const UNIT_TO_BASE: Record<KnownUnit, number> = {
+  개: 1,
+  g: 1,
+  kg: 1000,
+  ml: 1,
+  L: 1000,
+}
 
 export function normalizeUnit(raw: string): KnownUnit | null {
   const lower = raw.toLowerCase()
@@ -30,8 +56,25 @@ export function parseQuantity(
   return { number, unit }
 }
 
+export function unitCategory(unit: KnownUnit): UnitCategory {
+  return UNIT_CATEGORY[unit]
+}
+
+export function sameUnitCategory(a: KnownUnit, b: KnownUnit): boolean {
+  return UNIT_CATEGORY[a] === UNIT_CATEGORY[b]
+}
+
+export function toBaseUnits(q: { number: number; unit: KnownUnit }): number {
+  return q.number * UNIT_TO_BASE[q.unit]
+}
+
+export function fromBaseUnits(value: number, targetUnit: KnownUnit): number {
+  return value / UNIT_TO_BASE[targetUnit]
+}
+
 export function formatQuantityNumber(n: number): string {
-  const rounded = Math.round(n * 100) / 100
+  // Round to 3 decimals to keep small remnants readable (e.g., 0.007L).
+  const rounded = Math.round(n * 1000) / 1000
   return String(rounded)
 }
 
