@@ -10,6 +10,7 @@ import { consumeIngredient, updateIngredient } from './actions'
 import AddIngredientButton from './AddIngredientButton'
 
 type DateType = 'expiry' | 'opened'
+type SortMode = 'expiry' | 'oldest'
 
 const CATEGORIES: Category[] = ['fridge', 'freezer', 'pantry']
 
@@ -35,6 +36,7 @@ export default function IngredientList({
   ingredients: Ingredient[]
 }) {
   const [selected, setSelected] = useState<Category>('fridge')
+  const [sortMode, setSortMode] = useState<SortMode>('expiry')
   const [editing, setEditing] = useState<Ingredient | null>(null)
 
   const counts = useMemo(() => {
@@ -45,14 +47,24 @@ export default function IngredientList({
     return c
   }, [ingredients])
 
-  const filtered = useMemo(
-    () => ingredients.filter((ing) => ing.category === selected),
-    [ingredients, selected],
-  )
+  const filtered = useMemo(() => {
+    const arr = ingredients.filter((ing) => ing.category === selected)
+    if (sortMode === 'oldest') {
+      arr.sort((a, b) => a.added_at.localeCompare(b.added_at))
+    } else {
+      arr.sort((a, b) => {
+        if (!a.expiry_date && !b.expiry_date) return 0
+        if (!a.expiry_date) return 1
+        if (!b.expiry_date) return -1
+        return a.expiry_date.localeCompare(b.expiry_date)
+      })
+    }
+    return arr
+  }, [ingredients, selected, sortMode])
 
   return (
     <>
-      <div className="mb-4 flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+      <div className="mb-2 flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
         {CATEGORIES.map((cat) => (
           <button
             key={cat}
@@ -74,6 +86,28 @@ export default function IngredientList({
             >
               {counts[cat]}
             </span>
+          </button>
+        ))}
+      </div>
+
+      <div className="mb-4 flex justify-end gap-1 text-xs">
+        {(
+          [
+            { value: 'expiry', label: '⏰ 임박순' },
+            { value: 'oldest', label: '📅 오래된순' },
+          ] as const
+        ).map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => setSortMode(opt.value)}
+            className={`rounded-full px-3 py-1 font-medium transition ${
+              sortMode === opt.value
+                ? 'bg-zinc-900 text-white dark:bg-white dark:text-black'
+                : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
+            }`}
+          >
+            {opt.label}
           </button>
         ))}
       </div>
