@@ -1,12 +1,18 @@
 'use client'
 
 import { useEffect, useRef, useState, useTransition } from 'react'
+import type { Category } from '@/lib/supabase'
 import { addIngredient } from './actions'
 
 type DateType = 'expiry' | 'opened'
 
-export default function AddIngredientButton() {
+export default function AddIngredientButton({
+  defaultCategory = 'fridge',
+}: {
+  defaultCategory?: Category
+}) {
   const [open, setOpen] = useState(false)
+  const [category, setCategory] = useState<Category>(defaultCategory)
   const [dateType, setDateType] = useState<DateType>('expiry')
   const [isPending, startTransition] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
@@ -25,15 +31,22 @@ export default function AddIngredientButton() {
       await addIngredient(formData)
       formRef.current?.reset()
       setDateType('expiry')
+      setCategory(defaultCategory)
       setOpen(false)
     })
+  }
+
+  function openModal() {
+    setCategory(defaultCategory)
+    setDateType('expiry')
+    setOpen(true)
   }
 
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openModal}
         aria-label="재료 추가"
         className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-3xl text-white shadow-lg transition-transform hover:scale-105 hover:bg-emerald-700 active:scale-95"
       >
@@ -78,6 +91,35 @@ export default function AddIngredientButton() {
                 placeholder="양 (예: 500ml, 2개, 한 팩)"
                 className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
               />
+
+              <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+                {(
+                  [
+                    { value: 'fridge', label: '냉장' },
+                    { value: 'freezer', label: '냉동' },
+                    { value: 'pantry', label: '팬트리' },
+                  ] as const
+                ).map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`flex-1 cursor-pointer rounded-md py-2 text-center text-sm font-medium transition ${
+                      category === opt.value
+                        ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                        : 'text-zinc-500'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="category"
+                      value={opt.value}
+                      checked={category === opt.value}
+                      onChange={() => setCategory(opt.value)}
+                      className="sr-only"
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
 
               <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
                 {(

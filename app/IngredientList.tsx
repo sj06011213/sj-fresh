@@ -1,10 +1,17 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
-import type { Ingredient } from '@/lib/supabase'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import {
+  CATEGORY_LABELS,
+  type Category,
+  type Ingredient,
+} from '@/lib/supabase'
 import { consumeIngredient, updateIngredient } from './actions'
+import AddIngredientButton from './AddIngredientButton'
 
 type DateType = 'expiry' | 'opened'
+
+const CATEGORIES: Category[] = ['fridge', 'freezer', 'pantry']
 
 function daysUntil(dateStr: string | null): number | null {
   if (!dateStr) return null
@@ -27,97 +34,140 @@ export default function IngredientList({
 }: {
   ingredients: Ingredient[]
 }) {
+  const [selected, setSelected] = useState<Category>('fridge')
   const [editing, setEditing] = useState<Ingredient | null>(null)
 
-  if (ingredients.length === 0) {
-    return (
-      <ul className="flex flex-col gap-2">
-        <li className="py-12 text-center text-zinc-400">
-          아직 재료가 없어요.
-          <br />
-          오른쪽 아래 + 버튼으로 추가해보세요!
-        </li>
-      </ul>
-    )
-  }
+  const counts = useMemo(() => {
+    const c: Record<Category, number> = { fridge: 0, freezer: 0, pantry: 0 }
+    for (const ing of ingredients) {
+      c[ing.category] = (c[ing.category] ?? 0) + 1
+    }
+    return c
+  }, [ingredients])
+
+  const filtered = useMemo(
+    () => ingredients.filter((ing) => ing.category === selected),
+    [ingredients, selected],
+  )
 
   return (
     <>
-      <ul className="flex flex-col gap-2">
-        {ingredients.map((ing) => {
-          const d = daysUntil(ing.expiry_date)
-          const badge =
-            d === null ? '' : d < 0 ? `D+${-d}` : d === 0 ? 'D-day' : `D-${d}`
-          const urgent = d !== null && d <= 3
-          const opened = daysSince(ing.opened_at)
-          return (
-            <li
-              key={ing.id}
-              className={`flex items-center justify-between rounded-xl border p-3 ${
-                urgent
-                  ? 'border-rose-400 bg-rose-50 dark:bg-rose-950'
-                  : 'border-zinc-200 dark:border-zinc-800'
+      <div className="mb-4 flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+        {CATEGORIES.map((cat) => (
+          <button
+            key={cat}
+            type="button"
+            onClick={() => setSelected(cat)}
+            className={`flex-1 rounded-md py-2 text-sm font-medium transition ${
+              selected === cat
+                ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                : 'text-zinc-500'
+            }`}
+          >
+            {CATEGORY_LABELS[cat]}{' '}
+            <span
+              className={`ml-1 rounded-full px-2 py-0.5 text-xs ${
+                selected === cat
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300'
+                  : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300'
               }`}
             >
-              <button
-                type="button"
-                onClick={() => setEditing(ing)}
-                className="flex flex-1 flex-col items-start text-left"
+              {counts[cat]}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <ul className="flex flex-col gap-2">
+          <li className="py-12 text-center text-zinc-400">
+            {CATEGORY_LABELS[selected]} 재료가 아직 없어요.
+            <br />
+            오른쪽 아래 + 버튼으로 추가해보세요!
+          </li>
+        </ul>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {filtered.map((ing) => {
+            const d = daysUntil(ing.expiry_date)
+            const badge =
+              d === null
+                ? ''
+                : d < 0
+                ? `D+${-d}`
+                : d === 0
+                ? 'D-day'
+                : `D-${d}`
+            const urgent = d !== null && d <= 3
+            const opened = daysSince(ing.opened_at)
+            return (
+              <li
+                key={ing.id}
+                className={`flex items-center justify-between rounded-xl border p-3 ${
+                  urgent
+                    ? 'border-rose-400 bg-rose-50 dark:bg-rose-950'
+                    : 'border-zinc-200 dark:border-zinc-800'
+                }`}
               >
-                <span className="font-medium">
-                  {ing.name}
-                  {ing.quantity && (
-                    <span className="ml-2 text-sm font-normal text-zinc-500">
-                      · {ing.quantity}
+                <button
+                  type="button"
+                  onClick={() => setEditing(ing)}
+                  className="flex flex-1 flex-col items-start text-left"
+                >
+                  <span className="font-medium">
+                    {ing.name}
+                    {ing.quantity && (
+                      <span className="ml-2 text-sm font-normal text-zinc-500">
+                        · {ing.quantity}
+                      </span>
+                    )}
+                  </span>
+                  {ing.expiry_date && (
+                    <span
+                      className={`text-sm ${
+                        urgent
+                          ? 'text-rose-600 dark:text-rose-400'
+                          : 'text-zinc-500'
+                      }`}
+                    >
+                      🗓️ {ing.expiry_date} · {badge}
                     </span>
                   )}
-                </span>
-                {ing.expiry_date && (
-                  <span
-                    className={`text-sm ${
-                      urgent
-                        ? 'text-rose-600 dark:text-rose-400'
-                        : 'text-zinc-500'
-                    }`}
-                  >
-                    🗓️ {ing.expiry_date} · {badge}
-                  </span>
-                )}
-                {ing.opened_at && !ing.expiry_date && (
-                  <span className="text-sm text-zinc-500">
-                    📦 {ing.opened_at} 개봉 ·{' '}
-                    {opened === null
-                      ? ''
-                      : opened === 0
-                      ? '오늘'
-                      : `${opened}일차`}
-                  </span>
-                )}
-                {ing.memo && (
-                  <span className="mt-1 line-clamp-1 text-xs text-zinc-400">
-                    📝 {ing.memo}
-                  </span>
-                )}
-              </button>
-              <form action={consumeIngredient} className="ml-2">
-                <input type="hidden" name="id" value={ing.id} />
-                <button
-                  type="submit"
-                  className="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm text-white dark:bg-white dark:text-black"
-                >
-                  소비
+                  {ing.opened_at && !ing.expiry_date && (
+                    <span className="text-sm text-zinc-500">
+                      📦 {ing.opened_at} 개봉 ·{' '}
+                      {opened === null
+                        ? ''
+                        : opened === 0
+                        ? '오늘'
+                        : `${opened}일차`}
+                    </span>
+                  )}
+                  {ing.memo && (
+                    <span className="mt-1 line-clamp-1 text-xs text-zinc-400">
+                      📝 {ing.memo}
+                    </span>
+                  )}
                 </button>
-              </form>
-            </li>
-          )
-        })}
-      </ul>
+                <form action={consumeIngredient} className="ml-2">
+                  <input type="hidden" name="id" value={ing.id} />
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm text-white dark:bg-white dark:text-black"
+                  >
+                    소비
+                  </button>
+                </form>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+
+      <AddIngredientButton defaultCategory={selected} />
 
       {editing && (
-        <EditDialog
-          ingredient={editing}
-          onClose={() => setEditing(null)}
-        />
+        <EditDialog ingredient={editing} onClose={() => setEditing(null)} />
       )}
     </>
   )
@@ -133,6 +183,7 @@ function EditDialog({
   const initialDateType: DateType = ingredient.opened_at ? 'opened' : 'expiry'
   const initialDate = ingredient.opened_at ?? ingredient.expiry_date ?? ''
 
+  const [category, setCategory] = useState<Category>(ingredient.category)
   const [dateType, setDateType] = useState<DateType>(initialDateType)
   const [isPending, startTransition] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
@@ -192,6 +243,29 @@ function EditDialog({
             defaultValue={ingredient.quantity ?? ''}
             className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
           />
+
+          <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+            {CATEGORIES.map((cat) => (
+              <label
+                key={cat}
+                className={`flex-1 cursor-pointer rounded-md py-2 text-center text-sm font-medium transition ${
+                  category === cat
+                    ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                    : 'text-zinc-500'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="category"
+                  value={cat}
+                  checked={category === cat}
+                  onChange={() => setCategory(cat)}
+                  className="sr-only"
+                />
+                {CATEGORY_LABELS[cat]}
+              </label>
+            ))}
+          </div>
 
           <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
             {(

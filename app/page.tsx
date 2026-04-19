@@ -1,5 +1,4 @@
 import { supabase, type Ingredient } from '@/lib/supabase'
-import AddIngredientButton from './AddIngredientButton'
 import IngredientList from './IngredientList'
 
 export const dynamic = 'force-dynamic'
@@ -31,8 +30,6 @@ export default async function Home() {
       )}
 
       <IngredientList ingredients={ingredients} />
-
-      <AddIngredientButton />
     </main>
   )
 }
