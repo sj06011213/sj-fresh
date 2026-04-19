@@ -46,7 +46,7 @@ export default function HomeView({
               : 'text-zinc-500'
           }`}
         >
-          🛒 장볼거리
+          🛒 구매 필요
           {unboughtCount > 0 && (
             <span
               className={`ml-1 rounded-full px-2 py-0.5 text-xs ${
