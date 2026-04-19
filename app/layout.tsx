@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "sj-fresh",
+  title: "수진프레시",
   description: "냉장고 속 재료를 관리하세요",
 };
 

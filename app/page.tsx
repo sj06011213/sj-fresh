@@ -47,7 +47,7 @@ export default async function Home() {
             <path d="M9 6v1" />
             <path d="M9 14v2" />
           </svg>
-          sj-fresh
+          수진프레시
         </h1>
       </header>
 
