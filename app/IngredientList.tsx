@@ -21,7 +21,6 @@ import {
   CATEGORY_LABELS,
   type Category,
   type Ingredient,
-  type Usage,
 } from '@/lib/supabase'
 import { consumeIngredient, reorderIngredients } from './actions/ingredients'
 import AddIngredientButton from './AddIngredientButton'
@@ -30,7 +29,16 @@ import RecordUsageButton from './RecordUsageButton'
 
 type SortMode = 'expiry' | 'oldest' | 'custom'
 
-const CATEGORIES: Category[] = ['fridge', 'freezer', 'pantry']
+export type CategoryFilter = Category | 'all'
+
+const CATEGORY_FILTERS: CategoryFilter[] = ['all', 'fridge', 'freezer', 'pantry']
+
+const CATEGORY_FILTER_LABELS: Record<CategoryFilter, string> = {
+  all: '전체',
+  fridge: CATEGORY_LABELS.fridge,
+  freezer: CATEGORY_LABELS.freezer,
+  pantry: CATEGORY_LABELS.pantry,
+}
 
 function daysUntil(dateStr: string | null): number | null {
   if (!dateStr) return null
@@ -50,12 +58,13 @@ function daysSince(dateStr: string | null): number | null {
 
 export default function IngredientList({
   ingredients,
-  usages,
+  selected,
+  onSelectedChange,
 }: {
   ingredients: Ingredient[]
-  usages: Usage[]
+  selected: CategoryFilter
+  onSelectedChange: (next: CategoryFilter) => void
 }) {
-  const [selected, setSelected] = useState<Category>('fridge')
   const [sortMode, setSortMode] = useState<SortMode>('expiry')
   const [editing, setEditing] = useState<Ingredient | null>(null)
   const [localOrder, setLocalOrder] = useState<string[] | null>(null)
@@ -77,23 +86,23 @@ export default function IngredientList({
   }
 
   const counts = useMemo(() => {
-    const c: Record<Category, number> = { fridge: 0, freezer: 0, pantry: 0 }
+    const c: Record<CategoryFilter, number> = {
+      all: ingredients.length,
+      fridge: 0,
+      freezer: 0,
+      pantry: 0,
+    }
     for (const ing of ingredients) {
       c[ing.category] = (c[ing.category] ?? 0) + 1
     }
     return c
   }, [ingredients])
 
-  const usageCountByIngredient = useMemo(() => {
-    const c: Record<string, number> = {}
-    for (const u of usages) {
-      c[u.ingredient_id] = (c[u.ingredient_id] ?? 0) + 1
-    }
-    return c
-  }, [usages])
-
   const filtered = useMemo(() => {
-    const arr = ingredients.filter((ing) => ing.category === selected)
+    const arr =
+      selected === 'all'
+        ? [...ingredients]
+        : ingredients.filter((ing) => ing.category === selected)
     if (sortMode === 'oldest') {
       arr.sort((a, b) => a.added_at.localeCompare(b.added_at))
     } else if (sortMode === 'custom') {
@@ -155,18 +164,18 @@ export default function IngredientList({
   return (
     <>
       <div className="mb-3 flex flex-wrap gap-1.5">
-        {CATEGORIES.map((cat) => (
+        {CATEGORY_FILTERS.map((cat) => (
           <button
             key={cat}
             type="button"
-            onClick={() => setSelected(cat)}
+            onClick={() => onSelectedChange(cat)}
             className={`rounded-full px-3 py-1 text-xs font-medium transition ${
               selected === cat
                 ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
                 : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
             }`}
           >
-            {CATEGORY_LABELS[cat]}{' '}
+            {CATEGORY_FILTER_LABELS[cat]}{' '}
             <span className="opacity-60">· {counts[cat]}</span>
           </button>
         ))}
@@ -214,7 +223,9 @@ export default function IngredientList({
       {displayed.length === 0 ? (
         <ul className="flex flex-col gap-2">
           <li className="py-12 text-center text-zinc-400">
-            {CATEGORY_LABELS[selected]} 재료가 아직 없어요.
+            {selected === 'all'
+              ? '재료가 아직 없어요.'
+              : `${CATEGORY_LABELS[selected]} 재료가 아직 없어요.`}
             <br />
             오른쪽 아래 + 버튼으로 추가해보세요!
           </li>
@@ -234,7 +245,6 @@ export default function IngredientList({
                 <SortableCard
                   key={ing.id}
                   ingredient={ing}
-                  usageCount={usageCountByIngredient[ing.id] ?? 0}
                   onEdit={() => setEditing(ing)}
                 />
               ))}
@@ -247,7 +257,6 @@ export default function IngredientList({
             <li key={ing.id}>
               <IngredientRow
                 ingredient={ing}
-                usageCount={usageCountByIngredient[ing.id] ?? 0}
                 onEdit={() => setEditing(ing)}
               />
             </li>
@@ -255,7 +264,9 @@ export default function IngredientList({
         </ul>
       )}
 
-      <AddIngredientButton defaultCategory={selected} />
+      <AddIngredientButton
+        defaultCategory={selected === 'all' ? 'fridge' : selected}
+      />
       <RecordUsageButton ingredients={ingredients} />
 
       {editing && (
@@ -270,12 +281,10 @@ export default function IngredientList({
 
 function IngredientRow({
   ingredient,
-  usageCount,
   onEdit,
   dragHandle,
 }: {
   ingredient: Ingredient
-  usageCount: number
   onEdit: () => void
   dragHandle?: React.ReactNode
 }) {
@@ -322,11 +331,6 @@ function IngredientRow({
             {opened === null ? '' : opened === 0 ? '오늘' : `${opened}일차`}
           </span>
         )}
-        {usageCount > 0 && (
-          <span className="mt-1 text-xs text-zinc-400">
-            📊 {usageCount}회 사용
-          </span>
-        )}
         {ingredient.memo && (
           <span className="mt-1 line-clamp-1 text-xs text-zinc-400">
             📝 {ingredient.memo}
@@ -348,11 +352,9 @@ function IngredientRow({
 
 function SortableCard({
   ingredient,
-  usageCount,
   onEdit,
 }: {
   ingredient: Ingredient
-  usageCount: number
   onEdit: () => void
 }) {
   const {
@@ -374,7 +376,6 @@ function SortableCard({
     <li ref={setNodeRef} style={style}>
       <IngredientRow
         ingredient={ingredient}
-        usageCount={usageCount}
         onEdit={onEdit}
         dragHandle={
           <button

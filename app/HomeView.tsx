@@ -1,30 +1,31 @@
 'use client'
 
+import Image from 'next/image'
 import { useMemo, useState } from 'react'
 import type {
+  Category,
   Expense,
   Ingredient,
   ShoppingItem,
-  Usage,
 } from '@/lib/supabase'
 import ExpenseView from './ExpenseView'
-import IngredientList from './IngredientList'
+import IngredientList, { type CategoryFilter } from './IngredientList'
 import ShoppingList from './ShoppingList'
 
 type Mode = 'ingredients' | 'shopping' | 'expenses'
 
 export default function HomeView({
   ingredients,
-  usages,
   shoppingItems,
   expenses,
 }: {
   ingredients: Ingredient[]
-  usages: Usage[]
   shoppingItems: ShoppingItem[]
   expenses: Expense[]
 }) {
   const [mode, setMode] = useState<Mode>('ingredients')
+  const [selectedCategory, setSelectedCategory] =
+    useState<CategoryFilter>('fridge')
 
   const unboughtCount = useMemo(
     () => shoppingItems.filter((i) => !i.bought_at).length,
@@ -38,8 +39,36 @@ export default function HomeView({
         : 'text-zinc-500'
     }`
 
+  function handleLogoClick() {
+    setMode('ingredients')
+    setSelectedCategory('all')
+  }
+
+  function handleSelectCategoryOrAll(next: Category | 'all') {
+    setSelectedCategory(next)
+  }
+
   return (
     <>
+      <header className="mb-6 flex justify-center">
+        <h1 className="sr-only">수진프레시</h1>
+        <button
+          type="button"
+          onClick={handleLogoClick}
+          aria-label="수진프레시 홈 — 전체 재료 보기"
+          className="rounded-full p-1 transition hover:opacity-80 active:scale-95"
+        >
+          <Image
+            src="/logo.png"
+            alt="수진프레시"
+            width={912}
+            height={871}
+            priority
+            className="h-14 w-auto dark:invert"
+          />
+        </button>
+      </header>
+
       <div className="mb-4 flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
         <button
           type="button"
@@ -76,7 +105,11 @@ export default function HomeView({
       </div>
 
       {mode === 'ingredients' && (
-        <IngredientList ingredients={ingredients} usages={usages} />
+        <IngredientList
+          ingredients={ingredients}
+          selected={selectedCategory}
+          onSelectedChange={handleSelectCategoryOrAll}
+        />
       )}
       {mode === 'shopping' && <ShoppingList items={shoppingItems} />}
       {mode === 'expenses' && <ExpenseView expenses={expenses} />}
