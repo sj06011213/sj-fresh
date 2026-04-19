@@ -48,7 +48,7 @@ export default function AddIngredientButton({
         type="button"
         onClick={openModal}
         aria-label="재료 추가"
-        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-3xl text-white shadow-lg transition-transform hover:scale-105 hover:bg-emerald-700 active:scale-95"
+        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-zinc-900 text-3xl text-white shadow-lg transition-transform hover:scale-105 hover:bg-zinc-800 active:scale-95 dark:bg-white dark:text-black dark:hover:bg-zinc-100"
       >
         +
       </button>
