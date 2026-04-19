@@ -40,9 +40,9 @@ export default function RecordUsageButton({
         type="button"
         onClick={() => setOpen(true)}
         aria-label="소진 기록"
-        className="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-lime-400 text-2xl shadow-lg transition-transform hover:scale-105 hover:bg-lime-500 active:scale-95"
+        className="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-lime-200 text-2xl shadow-lg transition-transform hover:scale-105 hover:bg-lime-300 active:scale-95"
       >
-        📝
+        🍴
       </button>
 
       {open && (
