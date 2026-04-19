@@ -43,6 +43,7 @@ sj-fresh/
 │   ├── QuantityInput.tsx     # 숫자 + 단위 선택 (개/g/kg/ml/L/기타)
 │   ├── PlaceInput.tsx        # 구매처 선택 (마트/편의점/시장/기타)
 │   ├── VoiceInputButton.tsx  # 🎤 Web Speech API 래퍼
+│   ├── AutoResizeTextarea.tsx # 내용 길이에 맞춰 자동 늘어나는 textarea
 │   │
 │   └── actions/
 │       ├── ingredients.ts    # 재료 서버 액션
@@ -146,6 +147,7 @@ sj-fresh/
 - **로고 클릭 → 전체 재료 보기**: 헤더를 `page.tsx`(서버)에서 `HomeView`(클라이언트)로 이동하여 상태 공유 가능.
 - **폰트 변경**: 시스템 기본(Arial) → Gowun Dodum → **Jua (주아체)**. 귀여움 우선.
 - **로고 이미지 처리**: Gemini가 생성한 SJB 모노그램을 sharp 라이브러리로 자동 크롭 + 회색 배경 → 투명 알파 변환.
+- **메모 입력란 자동 확장**: `<textarea>` → `AutoResizeTextarea` 공용 컴포넌트로 일괄 교체. `useLayoutEffect` + `scrollHeight` 측정으로 구현, 라이브러리 미사용. 수정 다이얼로그 열릴 때도 기존 내용 길이 반영. 이유: 모바일에서 긴 메모 스크롤 보기 불편하다는 피드백.
 
 ---
 
