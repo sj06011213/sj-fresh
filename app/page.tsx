@@ -31,7 +31,6 @@ export default async function Home() {
     <main className="mx-auto w-full max-w-md px-4 py-6">
       <header className="mb-6">
         <h1 className="text-2xl font-bold">🥬 sj-fresh</h1>
-        <p className="text-sm text-zinc-500">냉장고 속 재료를 관리하세요</p>
       </header>
 
       {error && (
