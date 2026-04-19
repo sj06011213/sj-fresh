@@ -160,7 +160,6 @@ function EditShoppingItemDialog({
   }
 
   function handleDelete() {
-    if (!confirm(`"${item.name}"을(를) 목록에서 삭제할까요?`)) return
     const fd = new FormData()
     fd.append('id', item.id)
     startDeleteTransition(async () => {
