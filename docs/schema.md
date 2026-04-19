@@ -11,7 +11,8 @@ CREATE TABLE ingredients (
   name text NOT NULL,
   quantity text,            -- 양 (자유 텍스트: "500ml", "2개", "한 팩")
   added_at timestamptz NOT NULL DEFAULT now(),
-  expiry_date date,
+  expiry_date date,         -- 유통기한 (D-day 카운트다운 대상)
+  opened_at date,           -- 개봉일자 (경과일 카운트 — 유통기한 없는 재료용)
   photo_url text,
   consumed_at timestamptz,  -- soft delete 마커: 소비한 시각
   created_at timestamptz NOT NULL DEFAULT now()

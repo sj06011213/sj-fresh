@@ -11,6 +11,7 @@ export type Ingredient = {
   quantity: string | null
   added_at: string
   expiry_date: string | null
+  opened_at: string | null
   photo_url: string | null
   consumed_at: string | null
   created_at: string

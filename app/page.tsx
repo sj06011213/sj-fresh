@@ -12,6 +12,14 @@ function daysUntil(dateStr: string | null): number | null {
   return Math.floor((target.getTime() - today.getTime()) / 86_400_000)
 }
 
+function daysSince(dateStr: string | null): number | null {
+  if (!dateStr) return null
+  const past = new Date(dateStr)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.floor((today.getTime() - past.getTime()) / 86_400_000)
+}
+
 export default async function Home() {
   const { data, error } = await supabase
     .from('ingredients')
@@ -51,6 +59,7 @@ export default async function Home() {
           const badge =
             d === null ? '' : d < 0 ? `D+${-d}` : d === 0 ? 'D-day' : `D-${d}`
           const urgent = d !== null && d <= 3
+          const opened = daysSince(ing.opened_at)
           return (
             <li
               key={ing.id}
@@ -77,7 +86,17 @@ export default async function Home() {
                         : 'text-zinc-500'
                     }`}
                   >
-                    {ing.expiry_date} · {badge}
+                    🗓️ {ing.expiry_date} · {badge}
+                  </span>
+                )}
+                {ing.opened_at && !ing.expiry_date && (
+                  <span className="text-sm text-zinc-500">
+                    📦 {ing.opened_at} 개봉 ·{' '}
+                    {opened === null
+                      ? ''
+                      : opened === 0
+                      ? '오늘'
+                      : `${opened}일차`}
                   </span>
                 )}
               </div>

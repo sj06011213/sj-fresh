@@ -3,8 +3,11 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { addIngredient } from './actions'
 
+type DateType = 'expiry' | 'opened'
+
 export default function AddIngredientButton() {
   const [open, setOpen] = useState(false)
+  const [dateType, setDateType] = useState<DateType>('expiry')
   const [isPending, startTransition] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -21,6 +24,7 @@ export default function AddIngredientButton() {
     startTransition(async () => {
       await addIngredient(formData)
       formRef.current?.reset()
+      setDateType('expiry')
       setOpen(false)
     })
   }
@@ -74,10 +78,39 @@ export default function AddIngredientButton() {
                 placeholder="양 (예: 500ml, 2개, 한 팩)"
                 className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
               />
+
+              <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+                {(
+                  [
+                    { value: 'expiry', label: '🗓️ 유통기한' },
+                    { value: 'opened', label: '📦 개봉일자' },
+                  ] as const
+                ).map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`flex-1 cursor-pointer rounded-md py-2 text-center text-sm font-medium transition ${
+                      dateType === opt.value
+                        ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                        : 'text-zinc-500'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="date_type"
+                      value={opt.value}
+                      checked={dateType === opt.value}
+                      onChange={() => setDateType(opt.value)}
+                      className="sr-only"
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+
               <label className="flex items-center gap-2 text-sm text-zinc-500">
-                유통기한
+                {dateType === 'expiry' ? '유통기한' : '개봉일자'}
                 <input
-                  name="expiry_date"
+                  name="date"
                   type="date"
                   className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
                 />
