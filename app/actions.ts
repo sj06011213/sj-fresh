@@ -107,6 +107,18 @@ export async function toggleShoppingItem(formData: FormData) {
   revalidatePath('/')
 }
 
+export async function reorderIngredients(orderedIds: string[]) {
+  await Promise.all(
+    orderedIds.map((id, index) =>
+      supabase
+        .from('ingredients')
+        .update({ sort_order: index })
+        .eq('id', id),
+    ),
+  )
+  revalidatePath('/')
+}
+
 export async function consumeIngredient(formData: FormData) {
   const id = String(formData.get('id') ?? '')
   if (!id) return

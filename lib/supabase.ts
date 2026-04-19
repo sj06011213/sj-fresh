@@ -25,6 +25,7 @@ export type Ingredient = {
   photo_url: string | null
   consumed_at: string | null
   created_at: string
+  sort_order: number
 }
 
 export type Usage = {
