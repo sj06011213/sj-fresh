@@ -513,6 +513,19 @@ function EditDialog({
             className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base dark:border-zinc-700 dark:bg-black"
           />
 
+          <a
+            href={`https://chatgpt.com/?q=${encodeURIComponent(
+              `냉장고에 ${ingredient.name}${
+                ingredient.quantity ? ` ${ingredient.quantity}` : ''
+              }가 있어. 이걸로 만들 수 있는 간단한 레시피 3가지 추천해줘.`,
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 rounded-lg border border-emerald-600 py-3 text-base font-medium text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500 dark:text-emerald-400 dark:hover:bg-emerald-950"
+          >
+            ✨ 이 재료로 레시피 추천받기 (ChatGPT)
+          </a>
+
           <button
             type="submit"
             disabled={isPending}
