@@ -77,6 +77,36 @@ export async function recordUsage(formData: FormData) {
   revalidatePath('/')
 }
 
+export async function addShoppingItem(formData: FormData) {
+  const name = String(formData.get('name') ?? '').trim()
+  const quantity = String(formData.get('quantity') ?? '').trim()
+  const memo = String(formData.get('memo') ?? '').trim()
+  if (!name) return
+
+  await supabase.from('shopping_items').insert({
+    name,
+    quantity: quantity || null,
+    memo: memo || null,
+  })
+
+  revalidatePath('/')
+}
+
+export async function toggleShoppingItem(formData: FormData) {
+  const id = String(formData.get('id') ?? '')
+  const currentlyBought = formData.get('currently_bought') === 'true'
+  if (!id) return
+
+  await supabase
+    .from('shopping_items')
+    .update({
+      bought_at: currentlyBought ? null : new Date().toISOString(),
+    })
+    .eq('id', id)
+
+  revalidatePath('/')
+}
+
 export async function consumeIngredient(formData: FormData) {
   const id = String(formData.get('id') ?? '')
   if (!id) return

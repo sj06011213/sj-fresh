@@ -35,3 +35,12 @@ export type Usage = {
   memo: string | null
   created_at: string
 }
+
+export type ShoppingItem = {
+  id: string
+  name: string
+  quantity: string | null
+  memo: string | null
+  bought_at: string | null
+  created_at: string
+}
