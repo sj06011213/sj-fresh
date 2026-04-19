@@ -92,7 +92,7 @@ export default function IngredientList({
             <span
               className={`ml-1 rounded-full px-2 py-0.5 text-xs ${
                 selected === cat
-                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300'
+                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-black'
                   : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300'
               }`}
             >
