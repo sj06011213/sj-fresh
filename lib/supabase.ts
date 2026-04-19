@@ -46,3 +46,46 @@ export type ShoppingItem = {
   deleted_at: string | null
   created_at: string
 }
+
+export type ExpenseCategory =
+  | 'groceries'
+  | 'dining'
+  | 'delivery'
+  | 'snack'
+  | 'alcohol'
+
+export const EXPENSE_CATEGORIES: readonly ExpenseCategory[] = [
+  'groceries',
+  'dining',
+  'delivery',
+  'alcohol',
+  'snack',
+] as const
+
+export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
+  groceries: '식자재',
+  dining: '외식',
+  delivery: '배달',
+  snack: '카페·간식',
+  alcohol: '음주',
+}
+
+export const EXPENSE_CATEGORY_EMOJIS: Record<ExpenseCategory, string> = {
+  groceries: '🛒',
+  dining: '🍽',
+  delivery: '🛵',
+  snack: '☕',
+  alcohol: '🍺',
+}
+
+export type Expense = {
+  id: string
+  spent_at: string
+  amount: number
+  category: ExpenseCategory
+  description: string
+  place: string | null
+  memo: string | null
+  deleted_at: string | null
+  created_at: string
+}

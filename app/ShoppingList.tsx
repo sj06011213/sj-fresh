@@ -5,14 +5,100 @@ import type { ShoppingItem } from '@/lib/supabase'
 import {
   addShoppingItem,
   deleteShoppingItem,
+  restoreShoppingItem,
   toggleShoppingItem,
   updateShoppingItem,
 } from './actions'
+import UndoToast from './UndoToast'
+import VoiceInputButton from './VoiceInputButton'
+
+const UNDO_DURATION_MS = 5000
+const VOICE_HINT_DURATION_MS = 2500
+
+const UNIT_PATTERN =
+  '개|팩|봉지|봉|병|캔|상자|박스|묶음|줄|판|통|근|장|쪽|조각|알|포기|단|마리|kg|g|ml|L|리터|킬로|그램'
+const KOR_NUMBER_PATTERN = '한|두|세|네|다섯|여섯|일곱|여덟|아홉|열'
+const QUANTITY_REGEX = new RegExp(
+  `\\s+((?:(?:${KOR_NUMBER_PATTERN})\\s*(?:${UNIT_PATTERN}))|(?:\\d+(?:\\.\\d+)?\\s*(?:${UNIT_PATTERN})?))$`,
+)
+const LONE_KOR_NUMBER_REGEX = new RegExp(
+  `\\s+(${KOR_NUMBER_PATTERN}|하나|둘|셋|넷)$`,
+)
+
+function parseShoppingText(raw: string): { name: string; quantity: string } {
+  const text = raw.trim().replace(/[.,!?]+$/u, '')
+  const m = text.match(QUANTITY_REGEX)
+  if (m && m.index !== undefined) {
+    return { name: text.slice(0, m.index).trim(), quantity: m[1].trim() }
+  }
+  const m2 = text.match(LONE_KOR_NUMBER_REGEX)
+  if (m2 && m2.index !== undefined) {
+    return { name: text.slice(0, m2.index).trim(), quantity: m2[1].trim() }
+  }
+  return { name: text, quantity: '' }
+}
 
 export default function ShoppingList({ items }: { items: ShoppingItem[] }) {
   const formRef = useRef<HTMLFormElement>(null)
   const [isPending, startTransition] = useTransition()
   const [editing, setEditing] = useState<ShoppingItem | null>(null)
+  const [undoItem, setUndoItem] = useState<ShoppingItem | null>(null)
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [voiceHint, setVoiceHint] = useState<string | null>(null)
+  const voiceHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+      if (voiceHintTimerRef.current) clearTimeout(voiceHintTimerRef.current)
+    }
+  }, [])
+
+  function handleVoiceTranscript(text: string) {
+    const { name, quantity } = parseShoppingText(text)
+    if (!name) return
+    const fd = new FormData()
+    fd.append('name', name)
+    if (quantity) fd.append('quantity', quantity)
+    startTransition(async () => {
+      await addShoppingItem(fd)
+    })
+    const label = quantity ? `${name} · ${quantity}` : name
+    setVoiceHint(label)
+    if (voiceHintTimerRef.current) clearTimeout(voiceHintTimerRef.current)
+    voiceHintTimerRef.current = setTimeout(() => {
+      setVoiceHint(null)
+      voiceHintTimerRef.current = null
+    }, VOICE_HINT_DURATION_MS)
+  }
+
+  function handleDelete(item: ShoppingItem) {
+    const fd = new FormData()
+    fd.append('id', item.id)
+    startTransition(async () => {
+      await deleteShoppingItem(fd)
+      setUndoItem(item)
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+      undoTimerRef.current = setTimeout(() => {
+        setUndoItem(null)
+        undoTimerRef.current = null
+      }, UNDO_DURATION_MS)
+    })
+  }
+
+  function handleUndo() {
+    if (!undoItem) return
+    const fd = new FormData()
+    fd.append('id', undoItem.id)
+    if (undoTimerRef.current) {
+      clearTimeout(undoTimerRef.current)
+      undoTimerRef.current = null
+    }
+    startTransition(async () => {
+      await restoreShoppingItem(fd)
+      setUndoItem(null)
+    })
+  }
 
   const sorted = useMemo(() => {
     const copy = [...items]
@@ -38,13 +124,17 @@ export default function ShoppingList({ items }: { items: ShoppingItem[] }) {
 
   return (
     <>
-      <form ref={formRef} action={handleAdd} className="mb-4 flex gap-2">
+      <form ref={formRef} action={handleAdd} className="flex gap-2">
         <input
           name="name"
           placeholder="뭘 사야 하나요? (예: 우유)"
           required
           maxLength={80}
           className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
+        />
+        <VoiceInputButton
+          disabled={isPending}
+          onTranscript={handleVoiceTranscript}
         />
         <button
           type="submit"
@@ -55,6 +145,10 @@ export default function ShoppingList({ items }: { items: ShoppingItem[] }) {
           +
         </button>
       </form>
+
+      <div className="mb-4 mt-1 min-h-[1.25rem] text-xs text-emerald-600 dark:text-emerald-400">
+        {voiceHint && <span>🎤 방금 추가: {voiceHint}</span>}
+      </div>
 
       {sorted.length === 0 ? (
         <ul className="flex flex-col gap-2">
@@ -118,6 +212,16 @@ export default function ShoppingList({ items }: { items: ShoppingItem[] }) {
                     </span>
                   )}
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDelete(item)}
+                  disabled={isPending}
+                  aria-label={`${item.name} 삭제`}
+                  className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg text-xl text-zinc-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-950 dark:hover:text-rose-400"
+                >
+                  ×
+                </button>
               </li>
             )
           })}
@@ -128,6 +232,15 @@ export default function ShoppingList({ items }: { items: ShoppingItem[] }) {
         <EditShoppingItemDialog
           item={editing}
           onClose={() => setEditing(null)}
+        />
+      )}
+
+      {undoItem && (
+        <UndoToast
+          key={undoItem.id}
+          label={`"${undoItem.name}" 삭제됨`}
+          onUndo={handleUndo}
+          durationMs={UNDO_DURATION_MS}
         />
       )}
     </>

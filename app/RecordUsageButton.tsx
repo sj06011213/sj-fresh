@@ -92,13 +92,30 @@ export default function RecordUsageButton({
                 </select>
               </label>
 
-              <input
-                name="amount"
-                placeholder="사용한 양 (예: 200ml, 한 컵, 2개)"
-                className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
-              />
+              <div className="flex flex-col gap-1">
+                <input
+                  name="amount"
+                  placeholder="사용한 양 (예: 200ml, 한 컵, 2개)"
+                  className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
+                />
+                <span className="px-1 text-xs text-zinc-400">
+                  💡 재료 단위랑 맞게 쓰면 (예: 200ml) 남은 양이 자동 계산돼요
+                </span>
+              </div>
 
-              <label className="flex items-center gap-2 text-sm text-zinc-500">
+              <label
+                className="flex items-center gap-2 text-sm text-zinc-500"
+                onClick={(e) => {
+                  const input = e.currentTarget.querySelector<HTMLInputElement>(
+                    'input[type="date"]',
+                  )
+                  try {
+                    input?.showPicker?.()
+                  } catch {
+                    // showPicker not available or blocked — fall back to focus
+                  }
+                }}
+              >
                 사용 날짜
                 <input
                   name="used_at"

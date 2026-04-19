@@ -1,5 +1,6 @@
 import {
   supabase,
+  type Expense,
   type Ingredient,
   type ShoppingItem,
   type Usage,
@@ -9,24 +10,35 @@ import HomeView from './HomeView'
 export const dynamic = 'force-dynamic'
 
 export default async function Home() {
-  const [ingredientsRes, usagesRes, shoppingRes] = await Promise.all([
-    supabase
-      .from('ingredients')
-      .select('*')
-      .is('consumed_at', null)
-      .order('expiry_date', { ascending: true, nullsFirst: false }),
-    supabase.from('usages').select('*').order('used_at', { ascending: false }),
-    supabase
-      .from('shopping_items')
-      .select('*')
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false }),
-  ])
+  const [ingredientsRes, usagesRes, shoppingRes, expensesRes] =
+    await Promise.all([
+      supabase
+        .from('ingredients')
+        .select('*')
+        .is('consumed_at', null)
+        .order('expiry_date', { ascending: true, nullsFirst: false }),
+      supabase
+        .from('usages')
+        .select('*')
+        .order('used_at', { ascending: false }),
+      supabase
+        .from('shopping_items')
+        .select('*')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('expenses')
+        .select('*')
+        .is('deleted_at', null)
+        .order('spent_at', { ascending: false })
+        .order('created_at', { ascending: false }),
+    ])
 
   const { data, error } = ingredientsRes
   const ingredients = (data ?? []) as Ingredient[]
   const usages = (usagesRes.data ?? []) as Usage[]
   const shoppingItems = (shoppingRes.data ?? []) as ShoppingItem[]
+  const expenses = (expensesRes.data ?? []) as Expense[]
 
   return (
     <main className="mx-auto w-full max-w-md px-4 py-6">
@@ -61,6 +73,7 @@ export default async function Home() {
         ingredients={ingredients}
         usages={usages}
         shoppingItems={shoppingItems}
+        expenses={expenses}
       />
     </main>
   )

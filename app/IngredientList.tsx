@@ -29,6 +29,7 @@ import {
   updateIngredient,
 } from './actions'
 import AddIngredientButton from './AddIngredientButton'
+import QuantityInput from './QuantityInput'
 import RecordUsageButton from './RecordUsageButton'
 
 type DateType = 'expiry' | 'opened'
@@ -437,11 +438,9 @@ function EditDialog({
             defaultValue={ingredient.name}
             className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
           />
-          <input
+          <QuantityInput
             name="quantity"
-            placeholder="양"
             defaultValue={ingredient.quantity ?? ''}
-            className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
           />
 
           <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
@@ -495,7 +494,19 @@ function EditDialog({
             ))}
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-zinc-500">
+          <label
+            className="flex items-center gap-2 text-sm text-zinc-500"
+            onClick={(e) => {
+              const input = e.currentTarget.querySelector<HTMLInputElement>(
+                'input[type="date"]',
+              )
+              try {
+                input?.showPicker?.()
+              } catch {
+                // showPicker not available or blocked — fall back to focus
+              }
+            }}
+          >
             {dateType === 'expiry' ? '유통기한' : '개봉일자'}
             <input
               name="date"
