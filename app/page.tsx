@@ -9,7 +9,14 @@ import HomeView from './HomeView'
 
 export const dynamic = 'force-dynamic'
 
+// Shopping items stay visible until 1 day after they're checked as bought.
+const SHOPPING_BOUGHT_RETENTION_MS = 24 * 60 * 60 * 1000
+
 export default async function Home() {
+  const shoppingCutoff = new Date(
+    Date.now() - SHOPPING_BOUGHT_RETENTION_MS,
+  ).toISOString()
+
   const [ingredientsRes, usagesRes, shoppingRes, expensesRes] =
     await Promise.all([
       supabase
@@ -25,6 +32,7 @@ export default async function Home() {
         .from('shopping_items')
         .select('*')
         .is('deleted_at', null)
+        .or(`bought_at.is.null,bought_at.gt.${shoppingCutoff}`)
         .order('created_at', { ascending: false }),
       supabase
         .from('expenses')

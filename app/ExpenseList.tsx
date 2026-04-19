@@ -2,18 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import {
-  EXPENSE_CATEGORIES,
   EXPENSE_CATEGORY_EMOJIS,
   EXPENSE_CATEGORY_LABELS,
   type Expense,
-  type ExpenseCategory,
 } from '@/lib/supabase'
-import {
-  deleteExpense,
-  restoreExpense,
-  updateExpense,
-} from './actions'
-import PlaceInput from './PlaceInput'
+import { formatKRW } from '@/lib/utils/currency'
+import { formatDateLabel } from '@/lib/utils/date'
+import { deleteExpense, restoreExpense } from './actions/expenses'
+import EditExpenseDialog from './EditExpenseDialog'
 import UndoToast from './UndoToast'
 
 const UNDO_DURATION_MS = 5000
@@ -21,6 +17,7 @@ const UNDO_DURATION_MS = 5000
 export default function ExpenseList({ items }: { items: Expense[] }) {
   const [editing, setEditing] = useState<Expense | null>(null)
   const [undoItem, setUndoItem] = useState<Expense | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -41,21 +38,27 @@ export default function ExpenseList({ items }: { items: Expense[] }) {
   }, [items])
 
   function handleDelete(item: Expense) {
+    setError(null)
     const fd = new FormData()
     fd.append('id', item.id)
     startTransition(async () => {
-      await deleteExpense(fd)
-      setUndoItem(item)
-      if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
-      undoTimerRef.current = setTimeout(() => {
-        setUndoItem(null)
-        undoTimerRef.current = null
-      }, UNDO_DURATION_MS)
+      try {
+        await deleteExpense(fd)
+        setUndoItem(item)
+        if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+        undoTimerRef.current = setTimeout(() => {
+          setUndoItem(null)
+          undoTimerRef.current = null
+        }, UNDO_DURATION_MS)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '알 수 없는 오류')
+      }
     })
   }
 
   function handleUndo() {
     if (!undoItem) return
+    setError(null)
     const fd = new FormData()
     fd.append('id', undoItem.id)
     if (undoTimerRef.current) {
@@ -63,8 +66,12 @@ export default function ExpenseList({ items }: { items: Expense[] }) {
       undoTimerRef.current = null
     }
     startTransition(async () => {
-      await restoreExpense(fd)
-      setUndoItem(null)
+      try {
+        await restoreExpense(fd)
+        setUndoItem(null)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '알 수 없는 오류')
+      }
     })
   }
 
@@ -80,16 +87,19 @@ export default function ExpenseList({ items }: { items: Expense[] }) {
 
   return (
     <>
+      {error && (
+        <p className="mb-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+          ⚠️ {error}
+        </p>
+      )}
+
       <ul className="flex flex-col gap-4">
         {grouped.map(([date, dayItems]) => (
           <li key={date} className="flex flex-col gap-2">
             <div className="flex items-center justify-between text-xs text-zinc-500">
               <span>{formatDateLabel(date)}</span>
               <span>
-                ₩{' '}
-                {dayItems
-                  .reduce((sum, it) => sum + it.amount, 0)
-                  .toLocaleString('ko-KR')}
+                {formatKRW(dayItems.reduce((sum, it) => sum + it.amount, 0))}
               </span>
             </div>
             <ul className="flex flex-col gap-1.5">
@@ -121,7 +131,7 @@ export default function ExpenseList({ items }: { items: Expense[] }) {
                     )}
                   </button>
                   <span className="flex-shrink-0 text-sm font-semibold tabular-nums">
-                    ₩ {item.amount.toLocaleString('ko-KR')}
+                    {formatKRW(item.amount)}
                   </span>
                   <button
                     type="button"
@@ -155,193 +165,5 @@ export default function ExpenseList({ items }: { items: Expense[] }) {
         />
       )}
     </>
-  )
-}
-
-function formatDateLabel(dateStr: string): string {
-  const [y, m, d] = dateStr.split('-').map(Number)
-  const today = new Date()
-  const yyyy = today.getFullYear()
-  const mm = today.getMonth() + 1
-  const dd = today.getDate()
-  if (y === yyyy && m === mm && d === dd) return `오늘 ${m}/${d}`
-  const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1)
-  if (
-    y === yesterday.getFullYear() &&
-    m === yesterday.getMonth() + 1 &&
-    d === yesterday.getDate()
-  )
-    return `어제 ${m}/${d}`
-  return `${m}/${d}`
-}
-
-function EditExpenseDialog({
-  expense,
-  onClose,
-}: {
-  expense: Expense
-  onClose: () => void
-}) {
-  const [category, setCategory] = useState<ExpenseCategory>(expense.category)
-  const [isPending, startTransition] = useTransition()
-  const [isDeleting, startDeleteTransition] = useTransition()
-  const formRef = useRef<HTMLFormElement>(null)
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
-
-  function handleSubmit(formData: FormData) {
-    startTransition(async () => {
-      await updateExpense(formData)
-      onClose()
-    })
-  }
-
-  function handleDelete() {
-    const fd = new FormData()
-    fd.append('id', expense.id)
-    startDeleteTransition(async () => {
-      await deleteExpense(fd)
-      onClose()
-    })
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl dark:bg-zinc-900 sm:rounded-2xl"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">💰 지출 수정</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-2xl text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
-          >
-            ×
-          </button>
-        </div>
-
-        <form
-          ref={formRef}
-          action={handleSubmit}
-          className="flex flex-col gap-3"
-        >
-          <input type="hidden" name="id" value={expense.id} />
-
-          <input
-            name="description"
-            placeholder="어디서/뭘 샀나요?"
-            required
-            defaultValue={expense.description}
-            maxLength={80}
-            className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
-          />
-
-          <div className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 dark:border-zinc-700 dark:bg-black">
-            <span className="text-base text-zinc-500">₩</span>
-            <input
-              name="amount"
-              type="number"
-              inputMode="numeric"
-              required
-              min="0"
-              step="1"
-              defaultValue={expense.amount}
-              className="flex-1 bg-transparent py-3 text-base outline-none"
-            />
-            <span className="text-sm text-zinc-500">원</span>
-          </div>
-
-          <div className="grid grid-cols-5 gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
-            {EXPENSE_CATEGORIES.map((cat) => (
-              <label
-                key={cat}
-                className={`flex cursor-pointer flex-col items-center rounded-md px-1 py-2 text-[11px] font-medium transition ${
-                  category === cat
-                    ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white'
-                    : 'text-zinc-500'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="category"
-                  value={cat}
-                  checked={category === cat}
-                  onChange={() => setCategory(cat)}
-                  className="sr-only"
-                />
-                <span className="text-lg">
-                  {EXPENSE_CATEGORY_EMOJIS[cat]}
-                </span>
-                <span className="truncate">
-                  {EXPENSE_CATEGORY_LABELS[cat]}
-                </span>
-              </label>
-            ))}
-          </div>
-
-          {category === 'groceries' && (
-            <PlaceInput name="place" defaultValue={expense.place ?? ''} />
-          )}
-
-          <label
-            className="flex items-center gap-2 text-sm text-zinc-500"
-            onClick={(e) => {
-              const input = e.currentTarget.querySelector<HTMLInputElement>(
-                'input[type="date"]',
-              )
-              try {
-                input?.showPicker?.()
-              } catch {
-                // showPicker not available or blocked — fall back to focus
-              }
-            }}
-          >
-            날짜
-            <input
-              name="spent_at"
-              type="date"
-              defaultValue={expense.spent_at}
-              required
-              className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
-            />
-          </label>
-
-          <textarea
-            name="memo"
-            placeholder="메모 (선택)"
-            rows={2}
-            defaultValue={expense.memo ?? ''}
-            className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base dark:border-zinc-700 dark:bg-black"
-          />
-
-          <button
-            type="submit"
-            disabled={isPending || isDeleting}
-            className="mt-2 rounded-lg bg-emerald-600 py-3 text-base font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-          >
-            {isPending ? '저장 중...' : '저장'}
-          </button>
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={isPending || isDeleting}
-            className="rounded-lg bg-rose-50 py-3 text-base font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:bg-rose-950 dark:text-rose-300 dark:hover:bg-rose-900"
-          >
-            {isDeleting ? '삭제 중...' : '🗑 삭제'}
-          </button>
-        </form>
-      </div>
-    </div>
   )
 }

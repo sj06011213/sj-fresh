@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import type { Category } from '@/lib/supabase'
-import { addIngredient } from './actions'
+import { addIngredient } from './actions/ingredients'
+import Modal from './Modal'
 import QuantityInput from './QuantityInput'
 
 type DateType = 'expiry' | 'opened'
@@ -16,30 +17,28 @@ export default function AddIngredientButton({
   const [category, setCategory] = useState<Category>(defaultCategory)
   const [dateType, setDateType] = useState<DateType>('expiry')
   const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
 
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = 'hidden'
-      return () => {
-        document.body.style.overflow = ''
-      }
-    }
-  }, [open])
-
   function handleSubmit(formData: FormData) {
+    setError(null)
     startTransition(async () => {
-      await addIngredient(formData)
-      formRef.current?.reset()
-      setDateType('expiry')
-      setCategory(defaultCategory)
-      setOpen(false)
+      try {
+        await addIngredient(formData)
+        formRef.current?.reset()
+        setDateType('expiry')
+        setCategory(defaultCategory)
+        setOpen(false)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '알 수 없는 오류')
+      }
     })
   }
 
   function openModal() {
     setCategory(defaultCategory)
     setDateType('expiry')
+    setError(null)
     setOpen(true)
   }
 
@@ -55,133 +54,120 @@ export default function AddIngredientButton({
       </button>
 
       {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-t-2xl bg-white p-6 shadow-2xl dark:bg-zinc-900 sm:rounded-2xl"
+        <Modal title="재료 추가" onClose={() => setOpen(false)}>
+          <form
+            ref={formRef}
+            action={handleSubmit}
+            className="flex flex-col gap-3"
           >
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">재료 추가</h2>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="닫기"
-                className="flex h-8 w-8 items-center justify-center rounded-full text-2xl text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
-              >
-                ×
-              </button>
+            <input
+              name="name"
+              placeholder="재료 이름 (예: 우유)"
+              required
+              autoFocus
+              className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
+            />
+            <QuantityInput name="quantity" />
+
+            <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+              {(
+                [
+                  { value: 'fridge', label: '냉장' },
+                  { value: 'freezer', label: '냉동' },
+                  { value: 'pantry', label: '팬트리' },
+                ] as const
+              ).map((opt) => (
+                <label
+                  key={opt.value}
+                  className={`flex-1 cursor-pointer rounded-md py-2 text-center text-sm font-medium transition ${
+                    category === opt.value
+                      ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                      : 'text-zinc-500'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="category"
+                    value={opt.value}
+                    checked={category === opt.value}
+                    onChange={() => setCategory(opt.value)}
+                    className="sr-only"
+                  />
+                  {opt.label}
+                </label>
+              ))}
             </div>
 
-            <form
-              ref={formRef}
-              action={handleSubmit}
-              className="flex flex-col gap-3"
+            <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+              {(
+                [
+                  { value: 'expiry', label: '🗓️ 유통기한' },
+                  { value: 'opened', label: '📦 개봉일자' },
+                ] as const
+              ).map((opt) => (
+                <label
+                  key={opt.value}
+                  className={`flex-1 cursor-pointer rounded-md py-2 text-center text-sm font-medium transition ${
+                    dateType === opt.value
+                      ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                      : 'text-zinc-500'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="date_type"
+                    value={opt.value}
+                    checked={dateType === opt.value}
+                    onChange={() => setDateType(opt.value)}
+                    className="sr-only"
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+
+            <label
+              className="flex items-center gap-2 text-sm text-zinc-500"
+              onClick={(e) => {
+                const input = e.currentTarget.querySelector<HTMLInputElement>(
+                  'input[type="date"]',
+                )
+                try {
+                  input?.showPicker?.()
+                } catch {
+                  // showPicker not available or blocked — fall back to focus
+                }
+              }}
             >
+              {dateType === 'expiry' ? '유통기한' : '개봉일자'}
               <input
-                name="name"
-                placeholder="재료 이름 (예: 우유)"
-                required
-                autoFocus
-                className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
+                name="date"
+                type="date"
+                className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
               />
-              <QuantityInput name="quantity" />
+            </label>
+            <textarea
+              name="memo"
+              placeholder="메모 (선택) — 예: 엄마가 준 거, 반만 먹음"
+              rows={2}
+              className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base dark:border-zinc-700 dark:bg-black"
+            />
 
-              <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
-                {(
-                  [
-                    { value: 'fridge', label: '냉장' },
-                    { value: 'freezer', label: '냉동' },
-                    { value: 'pantry', label: '팬트리' },
-                  ] as const
-                ).map((opt) => (
-                  <label
-                    key={opt.value}
-                    className={`flex-1 cursor-pointer rounded-md py-2 text-center text-sm font-medium transition ${
-                      category === opt.value
-                        ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white'
-                        : 'text-zinc-500'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="category"
-                      value={opt.value}
-                      checked={category === opt.value}
-                      onChange={() => setCategory(opt.value)}
-                      className="sr-only"
-                    />
-                    {opt.label}
-                  </label>
-                ))}
-              </div>
+            {error && (
+              <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                ⚠️ {error}
+              </p>
+            )}
 
-              <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
-                {(
-                  [
-                    { value: 'expiry', label: '🗓️ 유통기한' },
-                    { value: 'opened', label: '📦 개봉일자' },
-                  ] as const
-                ).map((opt) => (
-                  <label
-                    key={opt.value}
-                    className={`flex-1 cursor-pointer rounded-md py-2 text-center text-sm font-medium transition ${
-                      dateType === opt.value
-                        ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white'
-                        : 'text-zinc-500'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="date_type"
-                      value={opt.value}
-                      checked={dateType === opt.value}
-                      onChange={() => setDateType(opt.value)}
-                      className="sr-only"
-                    />
-                    {opt.label}
-                  </label>
-                ))}
-              </div>
-
-              <label
-                className="flex items-center gap-2 text-sm text-zinc-500"
-                onClick={(e) => {
-                  const input = e.currentTarget.querySelector<HTMLInputElement>(
-                    'input[type="date"]',
-                  )
-                  try {
-                    input?.showPicker?.()
-                  } catch {
-                    // showPicker not available or blocked — fall back to focus
-                  }
-                }}
-              >
-                {dateType === 'expiry' ? '유통기한' : '개봉일자'}
-                <input
-                  name="date"
-                  type="date"
-                  className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
-                />
-              </label>
-              <textarea
-                name="memo"
-                placeholder="메모 (선택) — 예: 엄마가 준 거, 반만 먹음"
-                rows={2}
-                className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base dark:border-zinc-700 dark:bg-black"
-              />
-              <button
-                type="submit"
-                disabled={isPending}
-                className="mt-2 rounded-lg bg-emerald-600 py-3 text-base font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {isPending ? '추가 중...' : '추가'}
-              </button>
-            </form>
-          </div>
-        </div>
+            <button
+              type="submit"
+              disabled={isPending}
+              className="mt-2 rounded-lg bg-emerald-600 py-3 text-base font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {isPending ? '추가 중...' : '추가'}
+            </button>
+          </form>
+        </Modal>
       )}
     </>
   )

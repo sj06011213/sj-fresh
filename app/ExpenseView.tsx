@@ -8,27 +8,18 @@ import {
   type Expense,
   type ExpenseCategory,
 } from '@/lib/supabase'
+import { formatKRW } from '@/lib/utils/currency'
+import {
+  currentMonthKey,
+  monthLabel,
+  shiftMonth,
+} from '@/lib/utils/month'
 import AddExpenseButton from './AddExpenseButton'
 import ExpenseList from './ExpenseList'
 
-function toMonthKey(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-
-function monthLabel(key: string) {
-  const [y, m] = key.split('-').map(Number)
-  return `${y}년 ${m}월`
-}
-
-function shiftMonth(key: string, delta: number) {
-  const [y, m] = key.split('-').map(Number)
-  const d = new Date(y, m - 1 + delta, 1)
-  return toMonthKey(d)
-}
-
 export default function ExpenseView({ expenses }: { expenses: Expense[] }) {
-  const currentMonthKey = useMemo(() => toMonthKey(new Date()), [])
-  const [selectedMonth, setSelectedMonth] = useState(currentMonthKey)
+  const nowKey = useMemo(() => currentMonthKey(), [])
+  const [selectedMonth, setSelectedMonth] = useState(nowKey)
 
   const monthExpenses = useMemo(
     () => expenses.filter((e) => e.spent_at.startsWith(selectedMonth)),
@@ -52,7 +43,7 @@ export default function ExpenseView({ expenses }: { expenses: Expense[] }) {
     return map
   }, [monthExpenses])
 
-  const isCurrentMonth = selectedMonth === currentMonthKey
+  const isCurrentMonth = selectedMonth === nowKey
 
   return (
     <>
@@ -70,7 +61,7 @@ export default function ExpenseView({ expenses }: { expenses: Expense[] }) {
             {isCurrentMonth ? '이번 달 식비' : monthLabel(selectedMonth)}
           </span>
           <span className="text-2xl font-bold tabular-nums">
-            ₩ {total.toLocaleString('ko-KR')}
+            {formatKRW(total)}
           </span>
         </div>
         <button
@@ -109,7 +100,7 @@ export default function ExpenseView({ expenses }: { expenses: Expense[] }) {
                   {percent.toFixed(0)}%
                 </span>
                 <span className="w-20 text-right text-xs tabular-nums">
-                  ₩ {amount.toLocaleString('ko-KR')}
+                  {formatKRW(amount)}
                 </span>
               </div>
             )

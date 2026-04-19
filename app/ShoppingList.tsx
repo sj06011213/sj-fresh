@@ -1,56 +1,66 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import type { ShoppingItem } from '@/lib/supabase'
+import { parseShoppingText } from '@/lib/utils/voice-parser'
 import {
   addShoppingItem,
   deleteShoppingItem,
   restoreShoppingItem,
-  toggleShoppingItem,
-  updateShoppingItem,
-} from './actions'
+  setShoppingItemBought,
+} from './actions/shopping'
+import EditShoppingDialog from './EditShoppingDialog'
 import UndoToast from './UndoToast'
 import VoiceInputButton from './VoiceInputButton'
 
 const UNDO_DURATION_MS = 5000
 const VOICE_HINT_DURATION_MS = 2500
-
-const UNIT_PATTERN =
-  '개|팩|봉지|봉|병|캔|상자|박스|묶음|줄|판|통|근|장|쪽|조각|알|포기|단|마리|kg|g|ml|L|리터|킬로|그램'
-const KOR_NUMBER_PATTERN = '한|두|세|네|다섯|여섯|일곱|여덟|아홉|열'
-const QUANTITY_REGEX = new RegExp(
-  `\\s+((?:(?:${KOR_NUMBER_PATTERN})\\s*(?:${UNIT_PATTERN}))|(?:\\d+(?:\\.\\d+)?\\s*(?:${UNIT_PATTERN})?))$`,
-)
-const LONE_KOR_NUMBER_REGEX = new RegExp(
-  `\\s+(${KOR_NUMBER_PATTERN}|하나|둘|셋|넷)$`,
-)
-
-function parseShoppingText(raw: string): { name: string; quantity: string } {
-  const text = raw.trim().replace(/[.,!?]+$/u, '')
-  const m = text.match(QUANTITY_REGEX)
-  if (m && m.index !== undefined) {
-    return { name: text.slice(0, m.index).trim(), quantity: m[1].trim() }
-  }
-  const m2 = text.match(LONE_KOR_NUMBER_REGEX)
-  if (m2 && m2.index !== undefined) {
-    return { name: text.slice(0, m2.index).trim(), quantity: m2[1].trim() }
-  }
-  return { name: text, quantity: '' }
-}
+const TOGGLE_SYNC_DEBOUNCE_MS = 250
 
 export default function ShoppingList({ items }: { items: ShoppingItem[] }) {
+  const router = useRouter()
   const formRef = useRef<HTMLFormElement>(null)
   const [isPending, startTransition] = useTransition()
   const [editing, setEditing] = useState<ShoppingItem | null>(null)
   const [undoItem, setUndoItem] = useState<ShoppingItem | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [voiceHint, setVoiceHint] = useState<string | null>(null)
   const voiceHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Optimistic overlay: ids we've toggled client-side but haven't seen
+  // reflected in props yet. Cleared when server-fresh props arrive.
+  const [pendingToggle, setPendingToggle] = useState<Map<string, boolean>>(
+    () => new Map(),
+  )
+  const toggleTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map(),
+  )
+
+  // Clear optimistic entries once the incoming props match the expected state.
+  // Render-phase state sync per React docs ("Adjusting state on prop change").
+  const [prevItems, setPrevItems] = useState(items)
+  if (prevItems !== items) {
+    setPrevItems(items)
+    if (pendingToggle.size > 0) {
+      const next = new Map(pendingToggle)
+      for (const item of items) {
+        const expected = next.get(item.id)
+        if (expected === undefined) continue
+        if (!!item.bought_at === expected) next.delete(item.id)
+      }
+      if (next.size !== pendingToggle.size) setPendingToggle(next)
+    }
+  }
+
   useEffect(() => {
+    const toggleTimers = toggleTimersRef.current
     return () => {
       if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
       if (voiceHintTimerRef.current) clearTimeout(voiceHintTimerRef.current)
+      for (const t of toggleTimers.values()) clearTimeout(t)
+      toggleTimers.clear()
     }
   }, [])
 
@@ -60,8 +70,14 @@ export default function ShoppingList({ items }: { items: ShoppingItem[] }) {
     const fd = new FormData()
     fd.append('name', name)
     if (quantity) fd.append('quantity', quantity)
+    setError(null)
     startTransition(async () => {
-      await addShoppingItem(fd)
+      try {
+        await addShoppingItem(fd)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '알 수 없는 오류')
+        return
+      }
     })
     const label = quantity ? `${name} · ${quantity}` : name
     setVoiceHint(label)
@@ -72,22 +88,71 @@ export default function ShoppingList({ items }: { items: ShoppingItem[] }) {
     }, VOICE_HINT_DURATION_MS)
   }
 
+  function handleToggle(item: ShoppingItem) {
+    // 1. Read current displayed state (optimistic overlay wins)
+    const currentDisplay =
+      pendingToggle.get(item.id) ?? !!item.bought_at
+    const target = !currentDisplay
+
+    // 2. Flip optimistic state immediately — synchronous, no await
+    setPendingToggle((prev) => {
+      const next = new Map(prev)
+      next.set(item.id, target)
+      return next
+    })
+
+    // 3. Debounce server sync per-item: rapid clicks coalesce into one call
+    const existingTimer = toggleTimersRef.current.get(item.id)
+    if (existingTimer) clearTimeout(existingTimer)
+
+    const timer = setTimeout(() => {
+      toggleTimersRef.current.delete(item.id)
+      const fd = new FormData()
+      fd.append('id', item.id)
+      fd.append('bought', target ? 'true' : 'false')
+
+      // Fire-and-forget — don't block the UI thread
+      setShoppingItemBought(fd)
+        .then(() => {
+          router.refresh()
+        })
+        .catch((e: unknown) => {
+          // Only revert if user hasn't clicked again since
+          setPendingToggle((prev) => {
+            if (prev.get(item.id) !== target) return prev
+            const next = new Map(prev)
+            next.delete(item.id)
+            return next
+          })
+          setError(e instanceof Error ? e.message : '알 수 없는 오류')
+        })
+    }, TOGGLE_SYNC_DEBOUNCE_MS)
+
+    toggleTimersRef.current.set(item.id, timer)
+  }
+
   function handleDelete(item: ShoppingItem) {
+    setError(null)
     const fd = new FormData()
     fd.append('id', item.id)
     startTransition(async () => {
-      await deleteShoppingItem(fd)
-      setUndoItem(item)
-      if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
-      undoTimerRef.current = setTimeout(() => {
-        setUndoItem(null)
-        undoTimerRef.current = null
-      }, UNDO_DURATION_MS)
+      try {
+        await deleteShoppingItem(fd)
+        setUndoItem(item)
+        if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+        undoTimerRef.current = setTimeout(() => {
+          setUndoItem(null)
+          undoTimerRef.current = null
+        }, UNDO_DURATION_MS)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '알 수 없는 오류')
+      }
     })
   }
 
   function handleUndo() {
     if (!undoItem) return
+    setError(null)
     const fd = new FormData()
     fd.append('id', undoItem.id)
     if (undoTimerRef.current) {
@@ -95,13 +160,34 @@ export default function ShoppingList({ items }: { items: ShoppingItem[] }) {
       undoTimerRef.current = null
     }
     startTransition(async () => {
-      await restoreShoppingItem(fd)
-      setUndoItem(null)
+      try {
+        await restoreShoppingItem(fd)
+        setUndoItem(null)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '알 수 없는 오류')
+      }
     })
   }
 
+  // Project items through the optimistic overlay so the UI reflects the
+  // toggled state instantly even before revalidated props arrive.
+  const projected = useMemo(
+    () =>
+      items.map((item) => {
+        const pending = pendingToggle.get(item.id)
+        if (pending === undefined) return item
+        return {
+          ...item,
+          bought_at: pending
+            ? (item.bought_at ?? new Date().toISOString())
+            : null,
+        }
+      }),
+    [items, pendingToggle],
+  )
+
   const sorted = useMemo(() => {
-    const copy = [...items]
+    const copy = [...projected]
     copy.sort((a, b) => {
       if (!a.bought_at && !b.bought_at)
         return b.created_at.localeCompare(a.created_at)
@@ -110,15 +196,20 @@ export default function ShoppingList({ items }: { items: ShoppingItem[] }) {
       return (b.bought_at ?? '').localeCompare(a.bought_at ?? '')
     })
     return copy
-  }, [items])
+  }, [projected])
 
   function handleAdd(formData: FormData) {
+    setError(null)
     startTransition(async () => {
-      await addShoppingItem(formData)
-      formRef.current?.reset()
-      formRef.current
-        ?.querySelector<HTMLInputElement>('input[name="name"]')
-        ?.focus()
+      try {
+        await addShoppingItem(formData)
+        formRef.current?.reset()
+        formRef.current
+          ?.querySelector<HTMLInputElement>('input[name="name"]')
+          ?.focus()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '알 수 없는 오류')
+      }
     })
   }
 
@@ -150,6 +241,12 @@ export default function ShoppingList({ items }: { items: ShoppingItem[] }) {
         {voiceHint && <span>🎤 방금 추가: {voiceHint}</span>}
       </div>
 
+      {error && (
+        <p className="mb-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+          ⚠️ {error}
+        </p>
+      )}
+
       {sorted.length === 0 ? (
         <ul className="flex flex-col gap-2">
           <li className="py-12 text-center text-zinc-400">
@@ -171,25 +268,18 @@ export default function ShoppingList({ items }: { items: ShoppingItem[] }) {
                     : 'border-zinc-200 dark:border-zinc-800'
                 }`}
               >
-                <form action={toggleShoppingItem}>
-                  <input type="hidden" name="id" value={item.id} />
-                  <input
-                    type="hidden"
-                    name="currently_bought"
-                    value={bought ? 'true' : 'false'}
-                  />
-                  <button
-                    type="submit"
-                    aria-label={bought ? '장본 것 되돌리기' : '장봤음 체크'}
-                    className={`flex h-7 w-7 items-center justify-center rounded-md border-2 text-sm transition ${
-                      bought
-                        ? 'border-emerald-500 bg-emerald-500 text-white'
-                        : 'border-zinc-300 hover:border-emerald-400 dark:border-zinc-600'
-                    }`}
-                  >
-                    {bought && '✓'}
-                  </button>
-                </form>
+                <button
+                  type="button"
+                  onClick={() => handleToggle(item)}
+                  aria-label={bought ? '장본 것 되돌리기' : '장봤음 체크'}
+                  className={`flex h-7 w-7 items-center justify-center rounded-md border-2 text-sm transition ${
+                    bought
+                      ? 'border-emerald-500 bg-emerald-500 text-white'
+                      : 'border-zinc-300 hover:border-emerald-400 dark:border-zinc-600'
+                  }`}
+                >
+                  {bought && '✓'}
+                </button>
 
                 <button
                   type="button"
@@ -229,10 +319,7 @@ export default function ShoppingList({ items }: { items: ShoppingItem[] }) {
       )}
 
       {editing && (
-        <EditShoppingItemDialog
-          item={editing}
-          onClose={() => setEditing(null)}
-        />
+        <EditShoppingDialog item={editing} onClose={() => setEditing(null)} />
       )}
 
       {undoItem && (
@@ -244,109 +331,5 @@ export default function ShoppingList({ items }: { items: ShoppingItem[] }) {
         />
       )}
     </>
-  )
-}
-
-function EditShoppingItemDialog({
-  item,
-  onClose,
-}: {
-  item: ShoppingItem
-  onClose: () => void
-}) {
-  const [isPending, startTransition] = useTransition()
-  const [isDeleting, startDeleteTransition] = useTransition()
-  const formRef = useRef<HTMLFormElement>(null)
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
-
-  function handleSubmit(formData: FormData) {
-    startTransition(async () => {
-      await updateShoppingItem(formData)
-      onClose()
-    })
-  }
-
-  function handleDelete() {
-    const fd = new FormData()
-    fd.append('id', item.id)
-    startDeleteTransition(async () => {
-      await deleteShoppingItem(fd)
-      onClose()
-    })
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl dark:bg-zinc-900 sm:rounded-2xl"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">🛒 장볼 항목 수정</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-2xl text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
-          >
-            ×
-          </button>
-        </div>
-
-        <form
-          ref={formRef}
-          action={handleSubmit}
-          className="flex flex-col gap-3"
-        >
-          <input type="hidden" name="id" value={item.id} />
-
-          <input
-            name="name"
-            placeholder="이름"
-            required
-            defaultValue={item.name}
-            className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
-          />
-          <input
-            name="quantity"
-            placeholder="양 (예: 500ml, 2개)"
-            defaultValue={item.quantity ?? ''}
-            className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
-          />
-          <textarea
-            name="memo"
-            placeholder="메모 (선택)"
-            rows={2}
-            defaultValue={item.memo ?? ''}
-            className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base dark:border-zinc-700 dark:bg-black"
-          />
-
-          <button
-            type="submit"
-            disabled={isPending || isDeleting}
-            className="mt-2 rounded-lg bg-emerald-600 py-3 text-base font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-          >
-            {isPending ? '저장 중...' : '저장'}
-          </button>
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={isPending || isDeleting}
-            className="rounded-lg bg-rose-50 py-3 text-base font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:bg-rose-950 dark:text-rose-300 dark:hover:bg-rose-900"
-          >
-            {isDeleting ? '삭제 중...' : '🗑 삭제'}
-          </button>
-        </form>
-      </div>
-    </div>
   )
 }

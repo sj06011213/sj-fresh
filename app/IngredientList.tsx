@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useMemo, useState } from 'react'
 import {
   DndContext,
   PointerSensor,
@@ -23,16 +23,11 @@ import {
   type Ingredient,
   type Usage,
 } from '@/lib/supabase'
-import {
-  consumeIngredient,
-  reorderIngredients,
-  updateIngredient,
-} from './actions'
+import { consumeIngredient, reorderIngredients } from './actions/ingredients'
 import AddIngredientButton from './AddIngredientButton'
-import QuantityInput from './QuantityInput'
+import EditIngredientDialog from './EditIngredientDialog'
 import RecordUsageButton from './RecordUsageButton'
 
-type DateType = 'expiry' | 'opened'
 type SortMode = 'expiry' | 'oldest' | 'custom'
 
 const CATEGORIES: Category[] = ['fridge', 'freezer', 'pantry']
@@ -65,9 +60,13 @@ export default function IngredientList({
   const [editing, setEditing] = useState<Ingredient | null>(null)
   const [localOrder, setLocalOrder] = useState<string[] | null>(null)
 
-  useEffect(() => {
+  // Reset user's drag-drop order whenever server data refreshes.
+  // Render-phase state sync per React docs ("Adjusting state on prop change").
+  const [prevIngredients, setPrevIngredients] = useState(ingredients)
+  if (ingredients !== prevIngredients) {
+    setPrevIngredients(ingredients)
     setLocalOrder(null)
-  }, [ingredients])
+  }
 
   const counts = useMemo(() => {
     const c: Record<Category, number> = { fridge: 0, freezer: 0, pantry: 0 }
@@ -244,7 +243,10 @@ export default function IngredientList({
       <RecordUsageButton ingredients={ingredients} />
 
       {editing && (
-        <EditDialog ingredient={editing} onClose={() => setEditing(null)} />
+        <EditIngredientDialog
+          ingredient={editing}
+          onClose={() => setEditing(null)}
+        />
       )}
     </>
   )
@@ -361,191 +363,16 @@ function SortableCard({
         dragHandle={
           <button
             type="button"
+            aria-label="드래그로 순서 바꾸기"
+            className="mr-2 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
             {...attributes}
             {...listeners}
-            aria-label="드래그로 이동"
-            className="mr-2 flex h-8 w-6 cursor-grab touch-none items-center justify-center text-zinc-400 hover:text-zinc-600 active:cursor-grabbing"
+            style={{ touchAction: 'none', cursor: 'grab' }}
           >
-            ⋮⋮
+            ☰
           </button>
         }
       />
     </li>
-  )
-}
-
-function EditDialog({
-  ingredient,
-  onClose,
-}: {
-  ingredient: Ingredient
-  onClose: () => void
-}) {
-  const initialDateType: DateType = ingredient.opened_at ? 'opened' : 'expiry'
-  const initialDate = ingredient.opened_at ?? ingredient.expiry_date ?? ''
-
-  const [category, setCategory] = useState<Category>(ingredient.category)
-  const [dateType, setDateType] = useState<DateType>(initialDateType)
-  const [isPending, startTransition] = useTransition()
-  const formRef = useRef<HTMLFormElement>(null)
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
-
-  function handleSubmit(formData: FormData) {
-    startTransition(async () => {
-      await updateIngredient(formData)
-      onClose()
-    })
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl dark:bg-zinc-900 sm:rounded-2xl"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">재료 수정</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-2xl text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
-          >
-            ×
-          </button>
-        </div>
-
-        <form
-          ref={formRef}
-          action={handleSubmit}
-          className="flex flex-col gap-3"
-        >
-          <input type="hidden" name="id" value={ingredient.id} />
-
-          <input
-            name="name"
-            placeholder="재료 이름"
-            required
-            defaultValue={ingredient.name}
-            className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
-          />
-          <QuantityInput
-            name="quantity"
-            defaultValue={ingredient.quantity ?? ''}
-          />
-
-          <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
-            {CATEGORIES.map((cat) => (
-              <label
-                key={cat}
-                className={`flex-1 cursor-pointer rounded-md py-2 text-center text-sm font-medium transition ${
-                  category === cat
-                    ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white'
-                    : 'text-zinc-500'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="category"
-                  value={cat}
-                  checked={category === cat}
-                  onChange={() => setCategory(cat)}
-                  className="sr-only"
-                />
-                {CATEGORY_LABELS[cat]}
-              </label>
-            ))}
-          </div>
-
-          <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
-            {(
-              [
-                { value: 'expiry', label: '🗓️ 유통기한' },
-                { value: 'opened', label: '📦 개봉일자' },
-              ] as const
-            ).map((opt) => (
-              <label
-                key={opt.value}
-                className={`flex-1 cursor-pointer rounded-md py-2 text-center text-sm font-medium transition ${
-                  dateType === opt.value
-                    ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white'
-                    : 'text-zinc-500'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="date_type"
-                  value={opt.value}
-                  checked={dateType === opt.value}
-                  onChange={() => setDateType(opt.value)}
-                  className="sr-only"
-                />
-                {opt.label}
-              </label>
-            ))}
-          </div>
-
-          <label
-            className="flex items-center gap-2 text-sm text-zinc-500"
-            onClick={(e) => {
-              const input = e.currentTarget.querySelector<HTMLInputElement>(
-                'input[type="date"]',
-              )
-              try {
-                input?.showPicker?.()
-              } catch {
-                // showPicker not available or blocked — fall back to focus
-              }
-            }}
-          >
-            {dateType === 'expiry' ? '유통기한' : '개봉일자'}
-            <input
-              name="date"
-              type="date"
-              defaultValue={initialDate}
-              className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
-            />
-          </label>
-
-          <textarea
-            name="memo"
-            placeholder="메모 (선택)"
-            rows={3}
-            defaultValue={ingredient.memo ?? ''}
-            className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base dark:border-zinc-700 dark:bg-black"
-          />
-
-          <a
-            href={`https://chatgpt.com/?q=${encodeURIComponent(
-              `냉장고에 ${ingredient.name}${
-                ingredient.quantity ? ` ${ingredient.quantity}` : ''
-              }가 있어. 이걸로 만들 수 있는 간단한 레시피 3가지 추천해줘.`,
-            )}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 rounded-lg border border-emerald-600 py-3 text-base font-medium text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500 dark:text-emerald-400 dark:hover:bg-emerald-950"
-          >
-            ✨ 이 재료로 레시피 추천받기 (ChatGPT)
-          </a>
-
-          <button
-            type="submit"
-            disabled={isPending}
-            className="mt-2 rounded-lg bg-emerald-600 py-3 text-base font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-          >
-            {isPending ? '저장 중...' : '저장'}
-          </button>
-        </form>
-      </div>
-    </div>
   )
 }
