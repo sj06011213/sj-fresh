@@ -1,16 +1,21 @@
-import { supabase, type Ingredient } from '@/lib/supabase'
+import { supabase, type Ingredient, type Usage } from '@/lib/supabase'
 import IngredientList from './IngredientList'
 
 export const dynamic = 'force-dynamic'
 
 export default async function Home() {
-  const { data, error } = await supabase
-    .from('ingredients')
-    .select('*')
-    .is('consumed_at', null)
-    .order('expiry_date', { ascending: true, nullsFirst: false })
+  const [ingredientsRes, usagesRes] = await Promise.all([
+    supabase
+      .from('ingredients')
+      .select('*')
+      .is('consumed_at', null)
+      .order('expiry_date', { ascending: true, nullsFirst: false }),
+    supabase.from('usages').select('*').order('used_at', { ascending: false }),
+  ])
 
+  const { data, error } = ingredientsRes
   const ingredients = (data ?? []) as Ingredient[]
+  const usages = (usagesRes.data ?? []) as Usage[]
 
   return (
     <main className="mx-auto w-full max-w-md px-4 py-6">
@@ -29,7 +34,7 @@ export default async function Home() {
         </p>
       )}
 
-      <IngredientList ingredients={ingredients} />
+      <IngredientList ingredients={ingredients} usages={usages} />
     </main>
   )
 }

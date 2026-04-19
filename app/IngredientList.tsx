@@ -5,9 +5,11 @@ import {
   CATEGORY_LABELS,
   type Category,
   type Ingredient,
+  type Usage,
 } from '@/lib/supabase'
 import { consumeIngredient, updateIngredient } from './actions'
 import AddIngredientButton from './AddIngredientButton'
+import RecordUsageButton from './RecordUsageButton'
 
 type DateType = 'expiry' | 'opened'
 type SortMode = 'expiry' | 'oldest'
@@ -32,8 +34,10 @@ function daysSince(dateStr: string | null): number | null {
 
 export default function IngredientList({
   ingredients,
+  usages,
 }: {
   ingredients: Ingredient[]
+  usages: Usage[]
 }) {
   const [selected, setSelected] = useState<Category>('fridge')
   const [sortMode, setSortMode] = useState<SortMode>('expiry')
@@ -46,6 +50,14 @@ export default function IngredientList({
     }
     return c
   }, [ingredients])
+
+  const usageCountByIngredient = useMemo(() => {
+    const c: Record<string, number> = {}
+    for (const u of usages) {
+      c[u.ingredient_id] = (c[u.ingredient_id] ?? 0) + 1
+    }
+    return c
+  }, [usages])
 
   const filtered = useMemo(() => {
     const arr = ingredients.filter((ing) => ing.category === selected)
@@ -177,6 +189,11 @@ export default function IngredientList({
                         : `${opened}일차`}
                     </span>
                   )}
+                  {usageCountByIngredient[ing.id] > 0 && (
+                    <span className="mt-1 text-xs text-zinc-400">
+                      📊 {usageCountByIngredient[ing.id]}회 사용
+                    </span>
+                  )}
                   {ing.memo && (
                     <span className="mt-1 line-clamp-1 text-xs text-zinc-400">
                       📝 {ing.memo}
@@ -199,6 +216,7 @@ export default function IngredientList({
       )}
 
       <AddIngredientButton defaultCategory={selected} />
+      <RecordUsageButton ingredients={ingredients} />
 
       {editing && (
         <EditDialog ingredient={editing} onClose={() => setEditing(null)} />

@@ -57,6 +57,26 @@ export async function updateIngredient(formData: FormData) {
   revalidatePath('/')
 }
 
+export async function recordUsage(formData: FormData) {
+  const ingredient_id = String(formData.get('ingredient_id') ?? '')
+  const amount = String(formData.get('amount') ?? '').trim()
+  const used_at =
+    String(formData.get('used_at') ?? '') ||
+    new Date().toISOString().slice(0, 10)
+  const memo = String(formData.get('memo') ?? '').trim()
+
+  if (!ingredient_id) return
+
+  await supabase.from('usages').insert({
+    ingredient_id,
+    amount: amount || null,
+    used_at,
+    memo: memo || null,
+  })
+
+  revalidatePath('/')
+}
+
 export async function consumeIngredient(formData: FormData) {
   const id = String(formData.get('id') ?? '')
   if (!id) return

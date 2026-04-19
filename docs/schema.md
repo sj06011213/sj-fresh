@@ -4,6 +4,11 @@
 
 ## ingredients 테이블
 
+## 테이블 구조
+
+- `ingredients` — 재료 (현재 보관 중인 것)
+- `usages` — 소진 이력 (언제 뭘 얼마나 썼는지)
+
 ```sql
 -- 재료 테이블
 CREATE TABLE ingredients (
@@ -33,6 +38,26 @@ ALTER TABLE ingredients ENABLE ROW LEVEL SECURITY;
 -- ⚠️ 로그인/다중 사용자 붙일 때 반드시 좁혀야 함
 CREATE POLICY "allow all (single-user mode)"
   ON ingredients
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+-- 소진 이력 테이블
+CREATE TABLE usages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  ingredient_id uuid NOT NULL REFERENCES ingredients(id),
+  amount text,              -- 사용량 (예: "200ml", "한 컵")
+  used_at date NOT NULL DEFAULT current_date,
+  memo text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX usages_used_at_idx ON usages (used_at DESC);
+CREATE INDEX usages_ingredient_idx ON usages (ingredient_id);
+
+ALTER TABLE usages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow all (single-user mode)"
+  ON usages
   FOR ALL
   USING (true)
   WITH CHECK (true);

@@ -26,3 +26,12 @@ export type Ingredient = {
   consumed_at: string | null
   created_at: string
 }
+
+export type Usage = {
+  id: string
+  ingredient_id: string
+  amount: string | null
+  used_at: string
+  memo: string | null
+  created_at: string
+}
