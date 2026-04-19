@@ -59,6 +59,7 @@ export default function IngredientList({
   const [sortMode, setSortMode] = useState<SortMode>('expiry')
   const [editing, setEditing] = useState<Ingredient | null>(null)
   const [localOrder, setLocalOrder] = useState<string[] | null>(null)
+  const [isReordering, setIsReordering] = useState(false)
 
   // Reset user's drag-drop order whenever server data refreshes.
   // Render-phase state sync per React docs ("Adjusting state on prop change").
@@ -66,6 +67,13 @@ export default function IngredientList({
   if (ingredients !== prevIngredients) {
     setPrevIngredients(ingredients)
     setLocalOrder(null)
+  }
+
+  // Exit reorder mode whenever the user leaves the custom sort.
+  const [prevSortMode, setPrevSortMode] = useState(sortMode)
+  if (prevSortMode !== sortMode) {
+    setPrevSortMode(sortMode)
+    if (sortMode !== 'custom' && isReordering) setIsReordering(false)
   }
 
   const counts = useMemo(() => {
@@ -142,37 +150,29 @@ export default function IngredientList({
     void reorderIngredients(newOrder)
   }
 
-  const isReorderMode = sortMode === 'custom'
+  const isReorderMode = sortMode === 'custom' && isReordering
 
   return (
     <>
-      <div className="mb-2 flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+      <div className="mb-3 flex flex-wrap gap-1.5">
         {CATEGORIES.map((cat) => (
           <button
             key={cat}
             type="button"
             onClick={() => setSelected(cat)}
-            className={`flex-1 rounded-md py-2 text-sm font-medium transition ${
+            className={`rounded-full px-3 py-1 text-xs font-medium transition ${
               selected === cat
-                ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white'
-                : 'text-zinc-500'
+                ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
+                : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
             }`}
           >
             {CATEGORY_LABELS[cat]}{' '}
-            <span
-              className={`ml-1 rounded-full px-2 py-0.5 text-xs ${
-                selected === cat
-                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-black'
-                  : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300'
-              }`}
-            >
-              {counts[cat]}
-            </span>
+            <span className="opacity-60">· {counts[cat]}</span>
           </button>
         ))}
       </div>
 
-      <div className="mb-4 flex justify-end gap-1 text-xs">
+      <div className="mb-2 flex justify-end gap-4 text-xs">
         {(
           [
             { value: 'expiry', label: '⏰ 임박순' },
@@ -184,16 +184,32 @@ export default function IngredientList({
             key={opt.value}
             type="button"
             onClick={() => setSortMode(opt.value)}
-            className={`rounded-full px-3 py-1 font-medium transition ${
+            className={`transition ${
               sortMode === opt.value
-                ? 'bg-zinc-900 text-white dark:bg-white dark:text-black'
-                : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
+                ? 'font-semibold text-zinc-900 underline decoration-2 underline-offset-4 dark:text-white'
+                : 'text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300'
             }`}
           >
             {opt.label}
           </button>
         ))}
       </div>
+
+      {sortMode === 'custom' && (
+        <div className="mb-3 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setIsReordering((v) => !v)}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+              isReordering
+                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
+            }`}
+          >
+            {isReordering ? '✅ 완료' : '✏️ 순서 편집'}
+          </button>
+        </div>
+      )}
 
       {displayed.length === 0 ? (
         <ul className="flex flex-col gap-2">
