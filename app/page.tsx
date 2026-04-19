@@ -19,6 +19,7 @@ export default async function Home() {
     supabase
       .from('shopping_items')
       .select('*')
+      .is('deleted_at', null)
       .order('created_at', { ascending: false }),
   ])
 

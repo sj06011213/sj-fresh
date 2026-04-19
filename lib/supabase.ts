@@ -43,5 +43,6 @@ export type ShoppingItem = {
   quantity: string | null
   memo: string | null
   bought_at: string | null
+  deleted_at: string | null
   created_at: string
 }

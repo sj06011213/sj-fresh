@@ -1,12 +1,18 @@
 'use client'
 
-import { useMemo, useRef, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import type { ShoppingItem } from '@/lib/supabase'
-import { addShoppingItem, toggleShoppingItem } from './actions'
+import {
+  addShoppingItem,
+  deleteShoppingItem,
+  toggleShoppingItem,
+  updateShoppingItem,
+} from './actions'
 
 export default function ShoppingList({ items }: { items: ShoppingItem[] }) {
   const formRef = useRef<HTMLFormElement>(null)
   const [isPending, startTransition] = useTransition()
+  const [editing, setEditing] = useState<ShoppingItem | null>(null)
 
   const sorted = useMemo(() => {
     const copy = [...items]
@@ -32,11 +38,7 @@ export default function ShoppingList({ items }: { items: ShoppingItem[] }) {
 
   return (
     <>
-      <form
-        ref={formRef}
-        action={handleAdd}
-        className="mb-4 flex gap-2"
-      >
+      <form ref={formRef} action={handleAdd} className="mb-4 flex gap-2">
         <input
           name="name"
           placeholder="뭘 사야 하나요? (예: 우유)"
@@ -95,8 +97,10 @@ export default function ShoppingList({ items }: { items: ShoppingItem[] }) {
                   </button>
                 </form>
 
-                <div
-                  className={`flex flex-1 flex-col ${
+                <button
+                  type="button"
+                  onClick={() => setEditing(item)}
+                  className={`flex flex-1 flex-col items-start text-left ${
                     bought ? 'text-zinc-400 line-through' : ''
                   }`}
                 >
@@ -113,12 +117,124 @@ export default function ShoppingList({ items }: { items: ShoppingItem[] }) {
                       📝 {item.memo}
                     </span>
                   )}
-                </div>
+                </button>
               </li>
             )
           })}
         </ul>
       )}
+
+      {editing && (
+        <EditShoppingItemDialog
+          item={editing}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </>
+  )
+}
+
+function EditShoppingItemDialog({
+  item,
+  onClose,
+}: {
+  item: ShoppingItem
+  onClose: () => void
+}) {
+  const [isPending, startTransition] = useTransition()
+  const [isDeleting, startDeleteTransition] = useTransition()
+  const formRef = useRef<HTMLFormElement>(null)
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [])
+
+  function handleSubmit(formData: FormData) {
+    startTransition(async () => {
+      await updateShoppingItem(formData)
+      onClose()
+    })
+  }
+
+  function handleDelete() {
+    if (!confirm(`"${item.name}"을(를) 목록에서 삭제할까요?`)) return
+    const fd = new FormData()
+    fd.append('id', item.id)
+    startDeleteTransition(async () => {
+      await deleteShoppingItem(fd)
+      onClose()
+    })
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl dark:bg-zinc-900 sm:rounded-2xl"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">🛒 장볼 항목 수정</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="닫기"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-2xl text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
+          >
+            ×
+          </button>
+        </div>
+
+        <form
+          ref={formRef}
+          action={handleSubmit}
+          className="flex flex-col gap-3"
+        >
+          <input type="hidden" name="id" value={item.id} />
+
+          <input
+            name="name"
+            placeholder="이름"
+            required
+            defaultValue={item.name}
+            className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
+          />
+          <input
+            name="quantity"
+            placeholder="양 (예: 500ml, 2개)"
+            defaultValue={item.quantity ?? ''}
+            className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
+          />
+          <textarea
+            name="memo"
+            placeholder="메모 (선택)"
+            rows={2}
+            defaultValue={item.memo ?? ''}
+            className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base dark:border-zinc-700 dark:bg-black"
+          />
+
+          <button
+            type="submit"
+            disabled={isPending || isDeleting}
+            className="mt-2 rounded-lg bg-emerald-600 py-3 text-base font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {isPending ? '저장 중...' : '저장'}
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={isPending || isDeleting}
+            className="rounded-lg bg-rose-50 py-3 text-base font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:bg-rose-950 dark:text-rose-300 dark:hover:bg-rose-900"
+          >
+            {isDeleting ? '삭제 중...' : '🗑 삭제'}
+          </button>
+        </form>
+      </div>
+    </div>
   )
 }

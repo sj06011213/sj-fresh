@@ -107,6 +107,37 @@ export async function toggleShoppingItem(formData: FormData) {
   revalidatePath('/')
 }
 
+export async function updateShoppingItem(formData: FormData) {
+  const id = String(formData.get('id') ?? '')
+  const name = String(formData.get('name') ?? '').trim()
+  const quantity = String(formData.get('quantity') ?? '').trim()
+  const memo = String(formData.get('memo') ?? '').trim()
+  if (!id || !name) return
+
+  await supabase
+    .from('shopping_items')
+    .update({
+      name,
+      quantity: quantity || null,
+      memo: memo || null,
+    })
+    .eq('id', id)
+
+  revalidatePath('/')
+}
+
+export async function deleteShoppingItem(formData: FormData) {
+  const id = String(formData.get('id') ?? '')
+  if (!id) return
+
+  await supabase
+    .from('shopping_items')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
+
+  revalidatePath('/')
+}
+
 export async function reorderIngredients(orderedIds: string[]) {
   await Promise.all(
     orderedIds.map((id, index) =>
