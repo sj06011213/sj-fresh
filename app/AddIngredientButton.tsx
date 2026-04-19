@@ -1,0 +1,98 @@
+'use client'
+
+import { useEffect, useRef, useState, useTransition } from 'react'
+import { addIngredient } from './actions'
+
+export default function AddIngredientButton() {
+  const [open, setOpen] = useState(false)
+  const [isPending, startTransition] = useTransition()
+  const formRef = useRef<HTMLFormElement>(null)
+
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = ''
+      }
+    }
+  }, [open])
+
+  function handleSubmit(formData: FormData) {
+    startTransition(async () => {
+      await addIngredient(formData)
+      formRef.current?.reset()
+      setOpen(false)
+    })
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="재료 추가"
+        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-3xl text-white shadow-lg transition-transform hover:scale-105 hover:bg-emerald-700 active:scale-95"
+      >
+        +
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-t-2xl bg-white p-6 shadow-2xl dark:bg-zinc-900 sm:rounded-2xl"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">재료 추가</h2>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="닫기"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-2xl text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
+              >
+                ×
+              </button>
+            </div>
+
+            <form
+              ref={formRef}
+              action={handleSubmit}
+              className="flex flex-col gap-3"
+            >
+              <input
+                name="name"
+                placeholder="재료 이름 (예: 우유)"
+                required
+                autoFocus
+                className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
+              />
+              <input
+                name="quantity"
+                placeholder="양 (예: 500ml, 2개, 한 팩)"
+                className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
+              />
+              <label className="flex items-center gap-2 text-sm text-zinc-500">
+                유통기한
+                <input
+                  name="expiry_date"
+                  type="date"
+                  className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={isPending}
+                className="mt-2 rounded-lg bg-emerald-600 py-3 text-base font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {isPending ? '추가 중...' : '추가'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}

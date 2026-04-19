@@ -8,6 +8,7 @@ export const supabase = createClient(url, key)
 export type Ingredient = {
   id: string
   name: string
+  quantity: string | null
   added_at: string
   expiry_date: string | null
   photo_url: string | null

@@ -1,5 +1,6 @@
 import { supabase, type Ingredient } from '@/lib/supabase'
-import { addIngredient, consumeIngredient } from './actions'
+import { consumeIngredient } from './actions'
+import AddIngredientButton from './AddIngredientButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,32 +28,6 @@ export default async function Home() {
         <p className="text-sm text-zinc-500">냉장고 속 재료를 관리하세요</p>
       </header>
 
-      <form
-        action={addIngredient}
-        className="mb-6 flex flex-col gap-2 rounded-xl bg-zinc-50 p-4 dark:bg-zinc-900"
-      >
-        <input
-          name="name"
-          placeholder="재료 이름 (예: 우유)"
-          required
-          className="rounded-lg border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-black"
-        />
-        <label className="flex items-center gap-2 text-sm text-zinc-500">
-          유통기한
-          <input
-            name="expiry_date"
-            type="date"
-            className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-black"
-          />
-        </label>
-        <button
-          type="submit"
-          className="rounded-lg bg-emerald-600 py-2 font-medium text-white hover:bg-emerald-700"
-        >
-          + 재료 추가
-        </button>
-      </form>
-
       {error && (
         <p className="mb-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-950 dark:text-rose-300">
           DB 오류: {error.message}
@@ -68,7 +43,7 @@ export default async function Home() {
           <li className="py-12 text-center text-zinc-400">
             아직 재료가 없어요.
             <br />
-            위에서 추가해보세요!
+            오른쪽 아래 + 버튼으로 추가해보세요!
           </li>
         )}
         {ingredients.map((ing) => {
@@ -86,7 +61,14 @@ export default async function Home() {
               }`}
             >
               <div className="flex flex-col">
-                <span className="font-medium">{ing.name}</span>
+                <span className="font-medium">
+                  {ing.name}
+                  {ing.quantity && (
+                    <span className="ml-2 text-sm font-normal text-zinc-500">
+                      · {ing.quantity}
+                    </span>
+                  )}
+                </span>
                 {ing.expiry_date && (
                   <span
                     className={`text-sm ${
@@ -112,6 +94,8 @@ export default async function Home() {
           )
         })}
       </ul>
+
+      <AddIngredientButton />
     </main>
   )
 }

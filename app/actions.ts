@@ -5,11 +5,13 @@ import { supabase } from '@/lib/supabase'
 
 export async function addIngredient(formData: FormData) {
   const name = String(formData.get('name') ?? '').trim()
+  const quantity = String(formData.get('quantity') ?? '').trim()
   const expiry = String(formData.get('expiry_date') ?? '')
   if (!name) return
 
   await supabase.from('ingredients').insert({
     name,
+    quantity: quantity || null,
     expiry_date: expiry || null,
   })
 

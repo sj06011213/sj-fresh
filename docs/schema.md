@@ -9,6 +9,7 @@
 CREATE TABLE ingredients (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
+  quantity text,            -- 양 (자유 텍스트: "500ml", "2개", "한 팩")
   added_at timestamptz NOT NULL DEFAULT now(),
   expiry_date date,
   photo_url text,
