@@ -9,6 +9,7 @@ import {
   type ExpenseCategory,
 } from '@/lib/supabase'
 import { deleteExpense, updateExpense } from './actions/expenses'
+import AutoResizeTextarea from './AutoResizeTextarea'
 import Modal from './Modal'
 import PlaceInput from './PlaceInput'
 
@@ -131,7 +132,7 @@ export default function EditExpenseDialog({
           />
         </label>
 
-        <textarea
+        <AutoResizeTextarea
           name="memo"
           placeholder="메모 (선택)"
           rows={2}

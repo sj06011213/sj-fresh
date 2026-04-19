@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from 'react'
 import type { ShoppingItem } from '@/lib/supabase'
 import { deleteShoppingItem, updateShoppingItem } from './actions/shopping'
+import AutoResizeTextarea from './AutoResizeTextarea'
 import Modal from './Modal'
 
 export default function EditShoppingDialog({
@@ -61,7 +62,7 @@ export default function EditShoppingDialog({
           defaultValue={item.quantity ?? ''}
           className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
         />
-        <textarea
+        <AutoResizeTextarea
           name="memo"
           placeholder="메모 (선택)"
           rows={2}

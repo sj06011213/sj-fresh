@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { CATEGORY_LABELS, type Ingredient } from '@/lib/supabase'
 import { today } from '@/lib/utils/date'
 import { recordUsage } from './actions/ingredients'
+import AutoResizeTextarea from './AutoResizeTextarea'
 import Modal from './Modal'
 import QuantityInput from './QuantityInput'
 
@@ -109,7 +110,7 @@ export default function RecordUsageButton({
               />
             </label>
 
-            <textarea
+            <AutoResizeTextarea
               name="memo"
               placeholder="메모 (선택) — 예: 김치볶음밥 만들 때"
               rows={2}

@@ -9,6 +9,7 @@ import {
 } from '@/lib/supabase'
 import { today } from '@/lib/utils/date'
 import { addExpense } from './actions/expenses'
+import AutoResizeTextarea from './AutoResizeTextarea'
 import Modal from './Modal'
 import PlaceInput from './PlaceInput'
 
@@ -130,7 +131,7 @@ export default function AddExpenseButton() {
               />
             </label>
 
-            <textarea
+            <AutoResizeTextarea
               name="memo"
               placeholder="메모 (선택)"
               rows={2}

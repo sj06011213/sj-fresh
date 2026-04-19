@@ -7,6 +7,7 @@ import {
   type Ingredient,
 } from '@/lib/supabase'
 import { updateIngredient } from './actions/ingredients'
+import AutoResizeTextarea from './AutoResizeTextarea'
 import Modal from './Modal'
 import QuantityInput from './QuantityInput'
 
@@ -131,7 +132,7 @@ export default function EditIngredientDialog({
           />
         </label>
 
-        <textarea
+        <AutoResizeTextarea
           name="memo"
           placeholder="메모 (선택)"
           rows={3}

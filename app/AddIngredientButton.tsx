@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from 'react'
 import type { Category } from '@/lib/supabase'
 import { addIngredient } from './actions/ingredients'
+import AutoResizeTextarea from './AutoResizeTextarea'
 import Modal from './Modal'
 import QuantityInput from './QuantityInput'
 
@@ -146,7 +147,7 @@ export default function AddIngredientButton({
                 className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base dark:border-zinc-700 dark:bg-black"
               />
             </label>
-            <textarea
+            <AutoResizeTextarea
               name="memo"
               placeholder="메모 (선택) — 예: 엄마가 준 거, 반만 먹음"
               rows={2}
