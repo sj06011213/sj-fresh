@@ -4,24 +4,28 @@ import Image from 'next/image'
 import { useMemo, useState } from 'react'
 import type {
   Category,
+  Event,
   Expense,
   Ingredient,
   ShoppingItem,
 } from '@/lib/supabase'
 import ExpenseView from './ExpenseView'
 import IngredientList, { type CategoryFilter } from './IngredientList'
+import ScheduleView from './ScheduleView'
 import ShoppingList from './ShoppingList'
 
-type Mode = 'ingredients' | 'shopping' | 'expenses'
+type Mode = 'ingredients' | 'shopping' | 'expenses' | 'schedule'
 
 export default function HomeView({
   ingredients,
   shoppingItems,
   expenses,
+  events,
 }: {
   ingredients: Ingredient[]
   shoppingItems: ShoppingItem[]
   expenses: Expense[]
+  events: Event[]
 }) {
   const [mode, setMode] = useState<Mode>('ingredients')
   const [selectedCategory, setSelectedCategory] =
@@ -33,7 +37,7 @@ export default function HomeView({
   )
 
   const tabClass = (active: boolean) =>
-    `flex-1 rounded-md py-2 text-sm font-medium transition ${
+    `flex-1 rounded-md py-2 text-xs font-medium transition sm:text-sm ${
       active
         ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white'
         : 'text-zinc-500'
@@ -102,6 +106,13 @@ export default function HomeView({
         >
           💰 가계부
         </button>
+        <button
+          type="button"
+          onClick={() => setMode('schedule')}
+          className={tabClass(mode === 'schedule')}
+        >
+          🗓️ 일정
+        </button>
       </div>
 
       {mode === 'ingredients' && (
@@ -113,6 +124,7 @@ export default function HomeView({
       )}
       {mode === 'shopping' && <ShoppingList items={shoppingItems} />}
       {mode === 'expenses' && <ExpenseView expenses={expenses} />}
+      {mode === 'schedule' && <ScheduleView events={events} />}
     </>
   )
 }

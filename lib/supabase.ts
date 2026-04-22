@@ -89,3 +89,31 @@ export type Expense = {
   deleted_at: string | null
   created_at: string
 }
+
+export type EventOwner = 'me' | 'partner' | 'both'
+
+export const EVENT_OWNERS: readonly EventOwner[] = ['me', 'partner', 'both'] as const
+
+export const EVENT_OWNER_LABELS: Record<EventOwner, string> = {
+  me: '수진',
+  partner: '종빈',
+  both: 'SJB',
+}
+
+export const EVENT_OWNER_EMOJIS: Record<EventOwner, string> = {
+  me: '🩷',
+  partner: '💙',
+  both: '💛',
+}
+
+export type Event = {
+  id: string
+  title: string
+  event_date: string              // YYYY-MM-DD (시작일)
+  event_time: string | null       // HH:MM:SS or null(= all-day)
+  end_date: string | null         // NULL = 단일 날짜, NOT NULL = 기간 일정(event_date~end_date)
+  owner: EventOwner
+  memo: string | null
+  deleted_at: string | null
+  created_at: string
+}

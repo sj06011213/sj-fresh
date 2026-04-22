@@ -1,5 +1,6 @@
 import {
   supabase,
+  type Event,
   type Expense,
   type Ingredient,
   type ShoppingItem,
@@ -21,30 +22,38 @@ export default async function Home() {
   // react-hooks/purity.
   const shoppingCutoff = shoppingRetentionCutoff()
 
-  const [ingredientsRes, shoppingRes, expensesRes] = await Promise.all([
-    supabase
-      .from('ingredients')
-      .select('*')
-      .is('consumed_at', null)
-      .order('expiry_date', { ascending: true, nullsFirst: false }),
-    supabase
-      .from('shopping_items')
-      .select('*')
-      .is('deleted_at', null)
-      .or(`bought_at.is.null,bought_at.gt.${shoppingCutoff}`)
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('expenses')
-      .select('*')
-      .is('deleted_at', null)
-      .order('spent_at', { ascending: false })
-      .order('created_at', { ascending: false }),
-  ])
+  const [ingredientsRes, shoppingRes, expensesRes, eventsRes] =
+    await Promise.all([
+      supabase
+        .from('ingredients')
+        .select('*')
+        .is('consumed_at', null)
+        .order('expiry_date', { ascending: true, nullsFirst: false }),
+      supabase
+        .from('shopping_items')
+        .select('*')
+        .is('deleted_at', null)
+        .or(`bought_at.is.null,bought_at.gt.${shoppingCutoff}`)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('expenses')
+        .select('*')
+        .is('deleted_at', null)
+        .order('spent_at', { ascending: false })
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('events')
+        .select('*')
+        .is('deleted_at', null)
+        .order('event_date', { ascending: true })
+        .order('event_time', { ascending: true, nullsFirst: true }),
+    ])
 
   const { data, error } = ingredientsRes
   const ingredients = (data ?? []) as Ingredient[]
   const shoppingItems = (shoppingRes.data ?? []) as ShoppingItem[]
   const expenses = (expensesRes.data ?? []) as Expense[]
+  const events = (eventsRes.data ?? []) as Event[]
 
   return (
     <main className="mx-auto w-full max-w-md px-4 py-6">
@@ -58,6 +67,7 @@ export default async function Home() {
         ingredients={ingredients}
         shoppingItems={shoppingItems}
         expenses={expenses}
+        events={events}
       />
     </main>
   )

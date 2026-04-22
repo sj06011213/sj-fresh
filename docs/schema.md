@@ -13,6 +13,7 @@
 | `usages` | 재료 소진 이력 로그 | (삭제 안 함) |
 | `shopping_items` | 구매 필요 목록 | `deleted_at` |
 | `expenses` | 식비 가계부 | `deleted_at` |
+| `events` | 커플 일정·기념일 | `deleted_at` |
 
 ---
 
@@ -138,6 +139,44 @@ CREATE POLICY "allow all (single-user mode)"
 
 ---
 
+## events (커플 일정)
+
+```sql
+CREATE TABLE events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title text NOT NULL,                                     -- 일정 제목 (예: "200일 기념일")
+  event_date date NOT NULL,                                -- 시작일
+  event_time time,                                         -- NULL = 종일(all-day)
+  end_date date,                                           -- NULL = 단일 날짜 / NOT NULL = 기간 일정(event_date~end_date)
+  owner text NOT NULL CHECK (owner IN ('me', 'partner', 'both')),
+  memo text,
+  deleted_at timestamptz,                                  -- soft delete
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT events_end_date_check CHECK (end_date IS NULL OR end_date >= event_date)
+);
+
+CREATE INDEX events_date_idx
+  ON events (event_date ASC)
+  WHERE deleted_at IS NULL;
+
+CREATE INDEX events_owner_date_idx
+  ON events (owner, event_date ASC)
+  WHERE deleted_at IS NULL;
+
+ALTER TABLE events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow all (single-user mode)"
+  ON events FOR ALL USING (true) WITH CHECK (true);
+```
+
+### owner 매핑
+| 내부 키 | 한국어 라벨 | 이모지 | 색상 |
+|---|---|---|---|
+| `me` | 수진 | 🩷 | pink |
+| `partner` | 종빈 | 💙 | sky |
+| `both` | SJB | 💛 | yellow |
+
+---
+
 ## 마이그레이션 파일 (`scripts/sql/`)
 
 | 파일 | 내용 |
@@ -154,6 +193,8 @@ CREATE POLICY "allow all (single-user mode)"
 | `010_add_expenses.sql` | expenses 테이블 생성 |
 | `011_add_expense_place.sql` | expenses.place 컬럼 |
 | `012_add_expense_alcohol_category.sql` | 카테고리 CHECK에 'alcohol' 추가 |
+| `013_add_events.sql` | events 테이블 생성 (커플 일정) |
+| `014_add_event_end_date.sql` | events.end_date 컬럼 (기간 일정) |
 
 ---
 
