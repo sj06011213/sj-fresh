@@ -70,19 +70,6 @@ export async function updateIngredient(formData: FormData) {
   revalidatePath('/')
 }
 
-export async function consumeIngredient(formData: FormData) {
-  const id = String(formData.get('id') ?? '')
-  if (!id) return
-
-  const { error } = await supabase
-    .from('ingredients')
-    .update({ consumed_at: new Date().toISOString() })
-    .eq('id', id)
-  assertOk(error, '재료 소진 처리')
-
-  revalidatePath('/')
-}
-
 export async function reorderIngredients(orderedIds: string[]) {
   await Promise.all(
     orderedIds.map((id, index) =>

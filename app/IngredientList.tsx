@@ -22,10 +22,10 @@ import {
   type Category,
   type Ingredient,
 } from '@/lib/supabase'
-import { consumeIngredient, reorderIngredients } from './actions/ingredients'
+import { reorderIngredients } from './actions/ingredients'
 import AddIngredientButton from './AddIngredientButton'
 import EditIngredientDialog from './EditIngredientDialog'
-import RecordUsageButton from './RecordUsageButton'
+import RecordUsageModal from './RecordUsageModal'
 
 type SortMode = 'expiry' | 'oldest' | 'custom'
 
@@ -69,6 +69,13 @@ export default function IngredientList({
   const [editing, setEditing] = useState<Ingredient | null>(null)
   const [localOrder, setLocalOrder] = useState<string[] | null>(null)
   const [isReordering, setIsReordering] = useState(false)
+  const [usageOpen, setUsageOpen] = useState(false)
+  const [usageDefaultId, setUsageDefaultId] = useState<string | null>(null)
+
+  function openUsageModal(ingredientId: string | null) {
+    setUsageDefaultId(ingredientId)
+    setUsageOpen(true)
+  }
 
   // Reset user's drag-drop order whenever server data refreshes.
   // Render-phase state sync per React docs ("Adjusting state on prop change").
@@ -248,6 +255,7 @@ export default function IngredientList({
                   key={ing.id}
                   ingredient={ing}
                   onEdit={() => setEditing(ing)}
+                  onConsume={() => openUsageModal(ing.id)}
                 />
               ))}
             </ul>
@@ -260,6 +268,7 @@ export default function IngredientList({
               <IngredientRow
                 ingredient={ing}
                 onEdit={() => setEditing(ing)}
+                onConsume={() => openUsageModal(ing.id)}
               />
             </li>
           ))}
@@ -269,7 +278,23 @@ export default function IngredientList({
       <AddIngredientButton
         defaultCategory={selected === 'all' ? 'fridge' : selected}
       />
-      <RecordUsageButton ingredients={ingredients} />
+      {ingredients.length > 0 && (
+        <button
+          type="button"
+          onClick={() => openUsageModal(null)}
+          aria-label="소진 기록"
+          className="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100 text-2xl shadow-lg transition-transform hover:scale-105 hover:bg-zinc-200 active:scale-95 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+        >
+          🍴
+        </button>
+      )}
+
+      <RecordUsageModal
+        open={usageOpen}
+        onClose={() => setUsageOpen(false)}
+        ingredients={ingredients}
+        defaultIngredientId={usageDefaultId}
+      />
 
       {editing && (
         <EditIngredientDialog
@@ -284,10 +309,12 @@ export default function IngredientList({
 function IngredientRow({
   ingredient,
   onEdit,
+  onConsume,
   dragHandle,
 }: {
   ingredient: Ingredient
   onEdit: () => void
+  onConsume: () => void
   dragHandle?: React.ReactNode
 }) {
   const d = daysUntil(ingredient.expiry_date)
@@ -339,15 +366,13 @@ function IngredientRow({
           </span>
         )}
       </button>
-      <form action={consumeIngredient} className="ml-2">
-        <input type="hidden" name="id" value={ingredient.id} />
-        <button
-          type="submit"
-          className="rounded-lg bg-zinc-200 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600"
-        >
-          소비
-        </button>
-      </form>
+      <button
+        type="button"
+        onClick={onConsume}
+        className="ml-2 rounded-lg bg-zinc-200 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600"
+      >
+        소비
+      </button>
     </div>
   )
 }
@@ -355,9 +380,11 @@ function IngredientRow({
 function SortableCard({
   ingredient,
   onEdit,
+  onConsume,
 }: {
   ingredient: Ingredient
   onEdit: () => void
+  onConsume: () => void
 }) {
   const {
     attributes,
@@ -379,6 +406,7 @@ function SortableCard({
       <IngredientRow
         ingredient={ingredient}
         onEdit={onEdit}
+        onConsume={onConsume}
         dragHandle={
           <button
             type="button"
