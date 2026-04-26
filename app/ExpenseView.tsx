@@ -20,10 +20,20 @@ import ExpenseList from './ExpenseList'
 export default function ExpenseView({ expenses }: { expenses: Expense[] }) {
   const nowKey = useMemo(() => currentMonthKey(), [])
   const [selectedMonth, setSelectedMonth] = useState(nowKey)
+  const [selectedCategory, setSelectedCategory] =
+    useState<ExpenseCategory | null>(null)
 
   const monthExpenses = useMemo(
     () => expenses.filter((e) => e.spent_at.startsWith(selectedMonth)),
     [expenses, selectedMonth],
+  )
+
+  const visibleExpenses = useMemo(
+    () =>
+      selectedCategory
+        ? monthExpenses.filter((e) => e.category === selectedCategory)
+        : monthExpenses,
+    [monthExpenses, selectedCategory],
   )
 
   const total = useMemo(
@@ -60,7 +70,7 @@ export default function ExpenseView({ expenses }: { expenses: Expense[] }) {
           <span className="text-xs text-zinc-500">
             {isCurrentMonth ? '이번 달 식비' : monthLabel(selectedMonth)}
           </span>
-          <span className="text-2xl font-bold tabular-nums">
+          <span className="text-2xl font-medium tabular-nums">
             {formatKRW(total)}
           </span>
         </div>
@@ -76,12 +86,25 @@ export default function ExpenseView({ expenses }: { expenses: Expense[] }) {
       </div>
 
       {total > 0 && (
-        <div className="mb-4 flex flex-col gap-2 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="mb-4 flex flex-col gap-1 rounded-xl border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-950">
           {EXPENSE_CATEGORIES.map((cat) => {
             const amount = byCategory[cat]
             const percent = total > 0 ? (amount / total) * 100 : 0
+            const isSelected = selectedCategory === cat
             return (
-              <div key={cat} className="flex items-center gap-2 text-sm">
+              <button
+                key={cat}
+                type="button"
+                onClick={() =>
+                  setSelectedCategory(isSelected ? null : cat)
+                }
+                aria-pressed={isSelected}
+                className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
+                  isSelected
+                    ? 'bg-zinc-100 dark:bg-zinc-800'
+                    : 'hover:bg-zinc-50 dark:hover:bg-zinc-900'
+                }`}
+              >
                 <span className="flex w-24 flex-shrink-0 items-center">
                   <span className="inline-flex w-6 justify-center">
                     {EXPENSE_CATEGORY_EMOJIS[cat]}
@@ -102,13 +125,31 @@ export default function ExpenseView({ expenses }: { expenses: Expense[] }) {
                 <span className="w-20 text-right text-xs tabular-nums">
                   {formatKRW(amount)}
                 </span>
-              </div>
+              </button>
             )
           })}
         </div>
       )}
 
-      <ExpenseList items={monthExpenses} />
+      {selectedCategory && (
+        <div className="mb-3 flex items-center justify-between rounded-lg bg-zinc-100 px-3 py-2 text-sm dark:bg-zinc-800">
+          <span>
+            {EXPENSE_CATEGORY_EMOJIS[selectedCategory]}{' '}
+            <span className="font-medium">
+              {EXPENSE_CATEGORY_LABELS[selectedCategory]}
+            </span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelectedCategory(null)}
+            className="rounded px-2 py-0.5 text-xs text-zinc-600 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-700"
+          >
+            ✕ 전체보기
+          </button>
+        </div>
+      )}
+
+      <ExpenseList items={visibleExpenses} />
 
       <AddExpenseButton />
     </>

@@ -197,7 +197,7 @@ export default function IngredientList({
             onClick={() => setSortMode(opt.value)}
             className={`transition ${
               sortMode === opt.value
-                ? 'font-semibold text-zinc-900 underline decoration-2 underline-offset-4 dark:text-white'
+                ? 'font-medium text-zinc-900 underline decoration-2 underline-offset-4 dark:text-white'
                 : 'text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300'
             }`}
           >
