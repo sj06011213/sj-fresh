@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import dynamic from 'next/dynamic'
 import { useMemo, useState } from 'react'
 import type {
   Category,
@@ -9,10 +10,28 @@ import type {
   Ingredient,
   ShoppingItem,
 } from '@/lib/supabase'
-import ExpenseView from './ExpenseView'
 import IngredientList, { type CategoryFilter } from './IngredientList'
-import ScheduleView from './ScheduleView'
-import ShoppingList from './ShoppingList'
+
+const TabFallback = () => (
+  <div className="space-y-2">
+    {Array.from({ length: 4 }).map((_, i) => (
+      <div
+        key={i}
+        className="h-16 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800"
+      />
+    ))}
+  </div>
+)
+
+const ShoppingList = dynamic(() => import('./ShoppingList'), {
+  loading: TabFallback,
+})
+const ExpenseView = dynamic(() => import('./ExpenseView'), {
+  loading: TabFallback,
+})
+const ScheduleView = dynamic(() => import('./ScheduleView'), {
+  loading: TabFallback,
+})
 
 type Mode = 'ingredients' | 'shopping' | 'expenses' | 'schedule'
 
