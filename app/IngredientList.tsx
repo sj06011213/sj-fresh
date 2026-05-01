@@ -40,20 +40,28 @@ const CATEGORY_FILTER_LABELS: Record<CategoryFilter, string> = {
   pantry: CATEGORY_LABELS.pantry,
 }
 
+// Server runs in UTC, browser in KST → "오늘"이 9시간 어긋나 hydration mismatch가
+// 발생했음. 양쪽 모두 Asia/Seoul 캘린더 날짜로 정규화하여 동일한 결과 보장.
+function kstDayMs(input: Date | string): number {
+  const date = typeof input === 'string' ? new Date(input) : input
+  const ymd = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+  const [y, m, d] = ymd.split('-').map(Number)
+  return Date.UTC(y, m - 1, d)
+}
+
 function daysUntil(dateStr: string | null): number | null {
   if (!dateStr) return null
-  const target = new Date(dateStr)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return Math.floor((target.getTime() - today.getTime()) / 86_400_000)
+  return Math.floor((kstDayMs(dateStr) - kstDayMs(new Date())) / 86_400_000)
 }
 
 function daysSince(dateStr: string | null): number | null {
   if (!dateStr) return null
-  const past = new Date(dateStr)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return Math.floor((today.getTime() - past.getTime()) / 86_400_000)
+  return Math.floor((kstDayMs(new Date()) - kstDayMs(dateStr)) / 86_400_000)
 }
 
 export default function IngredientList({
